@@ -35,19 +35,3 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id E25L56VGAU6FC \
             --paths "/tracker.js"
-
-      - name: Wait for invalidation to complete
-        run: |
-          INVALIDATION_ID=$(aws cloudfront create-invalidation \
-            --distribution-id E25L56VGAU6FC \
-            --paths "/tracker.js" \
-            --query 'Invalidation.Id' \
-            --output text)
-          
-          echo "Invalidation ID: $INVALIDATION_ID"
-          
-          aws cloudfront wait invalidation-completed \
-            --distribution-id E25L56VGAU6FC \
-            --id $INVALIDATION_ID
-          
-          echo "CloudFront invalidation completed successfully"
