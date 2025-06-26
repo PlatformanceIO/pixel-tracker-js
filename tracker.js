@@ -157,6 +157,10 @@
             browser_connection_type: (nav.connection ? nav.connection.effectiveType : null),
             browser_cookie_enabled: nav.cookieEnabled || false,
             browser_referrer: document.referrer || '',
+            browser_url: window.location.href || '',
+            browser_hostname: window.location.hostname || '',
+            browser_pathname: window.location.pathname || '',
+            browser_query_string: window.location.search || '',
             browser_session_id: this.sessionId,
             browser_user_id: this.getUserId()
         };
