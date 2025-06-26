@@ -164,6 +164,7 @@
             browser_session_id: this.sessionId,
             browser_user_id: this.getUserId()
         };
+
     };
 
     PlatformanceTracker.prototype.calculateScrollInfo = function () {
