@@ -437,10 +437,10 @@
             });
         }
 
-        // Track window blur (loss of focus) as close event
-        // addEvent(window, 'blur', function () {
-        //     self.trackEvent(EVENT_TYPES.CLOSE);
-        // });
+        // Track window focus
+        addEvent(window, 'focus', function () {
+            self.trackEvent(EVENT_TYPES.VIEWABLE_IMPRESSION);
+        });
 
         // Session end when user leaves the page
         addEvent(window, 'beforeunload', function () {
