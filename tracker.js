@@ -383,12 +383,12 @@
         }
 
         // Track any potential missed viewability changes
-        addEvent(window, 'load', function () {
-            // Double check viewability after everything is loaded
-            if (document.visibilityState === 'visible') {
-                self.trackEvent(EVENT_TYPES.VIEWABLE_IMPRESSION);
-            }
-        });
+        // addEvent(window, 'load', function () {
+        //     // Double check viewability after everything is loaded
+        //     if (document.visibilityState === 'visible') {
+        //         self.trackEvent(EVENT_TYPES.VIEWABLE_IMPRESSION);
+        //     }
+        // });
 
         // Track engagement (interactions)
         var engagementTimeout;
