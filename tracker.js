@@ -89,9 +89,9 @@
         this.trackEvent(EVENT_TYPES.IMPRESSION);
 
         // Check for immediate viewability
-        if (document.visibilityState === 'visible') {
-            this.trackEvent(EVENT_TYPES.VIEWABLE_IMPRESSION);
-        }
+        // if (document.visibilityState === 'visible') {
+        //     this.trackEvent(EVENT_TYPES.VIEWABLE_IMPRESSION);
+        // }
     };
 
     PlatformanceTracker.prototype.now = function () {
