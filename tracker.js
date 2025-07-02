@@ -438,9 +438,9 @@
         }
 
         // Track window blur (loss of focus) as close event
-        addEvent(window, 'blur', function () {
-            self.trackEvent(EVENT_TYPES.CLOSE);
-        });
+        // addEvent(window, 'blur', function () {
+        //     self.trackEvent(EVENT_TYPES.CLOSE);
+        // });
 
         // Session end when user leaves the page
         addEvent(window, 'beforeunload', function () {
