@@ -386,7 +386,7 @@
         addEvent(window, 'load', function () {
             // Double check viewability after everything is loaded
             if (document.visibilityState === 'visible') {
-                self.trackEvent(EVENT_TYPES.VIEWABLE_IMPRESSION);
+                self.trackEvent(EVENT_TYPES.IMPRESSION);
             }
         });
 
@@ -439,7 +439,7 @@
 
         // Track window focus
         addEvent(window, 'focus', function () {
-            self.trackEvent(EVENT_TYPES.VIEWABLE_IMPRESSION);
+            self.trackEvent(EVENT_TYPES.IMPRESSION);
         });
 
         // Session end when user leaves the page
