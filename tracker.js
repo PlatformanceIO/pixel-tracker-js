@@ -61,7 +61,7 @@
         };
     }
 
-    var PlatformanceTracker = function (siteId, options) {
+    var PlatformanceTracker = async function (siteId, options) {
         if (!siteId) {
             throw new Error('siteId is required');
         }
@@ -91,6 +91,7 @@
 
         // Track initial events immediately instead of waiting for load
         this.trackEvent(EVENT_TYPES.SESSION_START);
+        await new Promise(resolve => setTimeout(resolve, 100)); // 100ms pause
         this.trackEvent(EVENT_TYPES.IMPRESSION);
 
     };
