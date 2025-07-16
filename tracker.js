@@ -1,4 +1,8 @@
 ; (function (window) {
+    // Initialize global queue if it doesn't exist
+    window.pfQueue = window.pfQueue || [];
+    window.platformanceQueue = window.platformanceQueue || [];
+
     // Event type definitions
     var EVENT_TYPES = {
         SESSION_START: 'session_start',
@@ -76,6 +80,9 @@
         this.batchTimeout = this.options.batchTimeout || 1000;
         this.debug = this.options.debug || false;
 
+        // Process any queued events from global array
+        this.processGlobalQueue();
+
         // Start batch processing immediately
         this.processBatchedEvents();
 
@@ -124,6 +131,63 @@
             this.userId = this.generateUserId();
         }
         return this.userId;
+    };
+
+    PlatformanceTracker.prototype.processGlobalQueue = function () {
+        var self = this;
+        var globalQueue = window.pfQueue || window.platformanceQueue || [];
+
+        self.log('Processing global queue. Found ' + globalQueue.length + ' events');
+
+        // Process each queued command
+        for (var i = 0; i < globalQueue.length; i++) {
+            var command = globalQueue[i];
+
+            if (Array.isArray(command) && command.length >= 2) {
+                var action = command[0];
+                var eventType = command[1];
+                var additionalData = command[2] || {};
+
+                if (action === 'track' || action === 'trackEvent') {
+                    self.log('Processing queued event:', eventType, additionalData);
+                    self.trackEvent(eventType, additionalData);
+                } else if (action === 'config') {
+                    // Handle configuration updates
+                    self.log('Processing queued config:', command);
+                    if (eventType && typeof eventType === 'object') {
+                        Object.assign(self.options, eventType);
+                    }
+                }
+            } else {
+                self.log('Invalid queue command format:', command);
+            }
+        }
+
+        // Clear the processed queue
+        globalQueue.length = 0;
+
+        // Replace the global queue with a function that directly calls trackEvent
+        window.pfQueue = window.platformanceQueue = function () {
+            var args = Array.prototype.slice.call(arguments);
+            if (args.length >= 2) {
+                var action = args[0];
+                var eventType = args[1];
+                var additionalData = args[2] || {};
+
+                if (action === 'track' || action === 'trackEvent') {
+                    self.trackEvent(eventType, additionalData);
+                } else if (action === 'config' && eventType && typeof eventType === 'object') {
+                    Object.assign(self.options, eventType);
+                }
+            }
+        };
+
+        // Also add a push method for array-like behavior
+        window.pfQueue.push = window.platformanceQueue.push = function (command) {
+            if (Array.isArray(command) && command.length >= 2) {
+                window.pfQueue.apply(window, command);
+            }
+        };
     };
 
     PlatformanceTracker.prototype.getBrowserInfo = function () {

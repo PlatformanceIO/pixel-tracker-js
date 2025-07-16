@@ -27,6 +27,8 @@
 
 ## 🚀 Quick Start Configuration
 
+### Simple Setup
+
 Simply add the following code to your HTML file, ideally right before the closing `</body>` tag:
 
 ```html
@@ -40,7 +42,64 @@ Simply add the following code to your HTML file, ideally right before the closin
 </script>
 ```
 
-That's it! The tracker will automatically start collecting data. For advanced configuration, you can initialize it with additional options:cker JS SDK
+### Global Queue Setup (Recommended)
+
+For optimal tracking without missing early page events, use the global queue pattern:
+
+```html
+<head>
+    <!-- Initialize the global queue BEFORE the tracker script loads -->
+    <script>
+        window.pfQueue = window.pfQueue || [];
+        
+        // Queue events before the tracker loads
+        pfQueue.push(['track', 'custom_early_event', { source: 'head' }]);
+        pfQueue.push(['track', 'page_load_start', { url: location.href }]);
+    </script>
+</head>
+<body>
+    <!-- Your page content -->
+    
+    <!-- Add events during page construction -->
+    <script>
+        pfQueue.push(['track', 'dom_parsing', { element: 'body' }]);
+    </script>
+    
+    <!-- Load tracker at end of body -->
+    <script src="https://pixel.data.platformance.io/tracker.js"></script>
+    <script>
+        // Initialize tracker - processes all queued events automatically
+        var pfTracker = new PlatformanceTracker('YOUR_SITE_ID');
+        
+        // After initialization, events are sent directly
+        pfTracker.trackEvent('tracker_ready', { timestamp: Date.now() });
+    </script>
+</body>
+```
+
+That's it! The tracker will automatically start collecting data and process any events that were queued before it loaded.
+
+### 🔄 Global Queue API
+
+The global queue supports these command formats:
+
+```javascript
+// Track events (both formats work)
+pfQueue.push(['track', 'event_name', { custom_data: 'value' }]);
+pfQueue.push(['trackEvent', 'event_name', { custom_data: 'value' }]);
+
+// Update configuration
+pfQueue.push(['config', { debug: true, maxRetries: 5 }]);
+
+// Function-style calls (after tracker loads)
+pfQueue('track', 'event_name', { custom_data: 'value' });
+```
+
+**Benefits of Global Queue:**
+- ✅ Zero event loss - capture events before tracker loads
+- ⚡ Immediate tracking - no waiting for script load
+- 🔄 Automatic processing - queued events are processed on initialization
+- 🎯 Early user interactions - capture clicks, scrolls, and custom events immediately
 
 ### ⚙️ Advanced Configuration
 
