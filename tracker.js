@@ -3,8 +3,6 @@
     var EVENT_TYPES = {
         SESSION_START: 'session_start',
         IMPRESSION: 'impression',
-        VIEWABLE_IMPRESSION: 'viewable_impression',
-        ENGAGEMENT: 'engagement',
         CLICK: 'click',
         EXIT: 'exit',
         CLOSE: 'close',
@@ -88,10 +86,6 @@
         this.trackEvent(EVENT_TYPES.SESSION_START);
         this.trackEvent(EVENT_TYPES.IMPRESSION);
 
-        // Check for immediate viewability
-        // if (document.visibilityState === 'visible') {
-        //     this.trackEvent(EVENT_TYPES.VIEWABLE_IMPRESSION);
-        // }
     };
 
     PlatformanceTracker.prototype.now = function () {
@@ -390,21 +384,6 @@
             }
         });
 
-        // Track engagement (interactions)
-        var engagementTimeout;
-        function trackEngagement() {
-            if (engagementTimeout) {
-                clearTimeout(engagementTimeout);
-            }
-            engagementTimeout = setTimeout(function () {
-                self.trackEvent(EVENT_TYPES.ENGAGEMENT);
-            }, 30000);
-        }
-
-        // Track various engagement events
-        // ['mousemove', 'scroll', 'keypress',].forEach(function (eventType) {
-        //     addEvent(document, eventType, trackEngagement);
-        // });
 
         // Click events
         addEvent(document, 'click', function (event) {

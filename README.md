@@ -53,18 +53,45 @@ That's it! The tracker will automatically start collecting data. For advanced co
 | `batchSize` | Events per batch | `10` |
 | `batchTimeout` | Batch delay (ms) | `1000` |
 
-### 📡 Built-in Events
+### 📡 Automatically Fired Events
 
-The tracker automatically captures the following events:
+The tracker automatically captures the following events without any additional configuration:
 
-- `session_start`: When the page loads
-- `impression`: Initial page view
-- `viewable_impression`: When the page becomes visible
-- `engagement`: User interactions (debounced)
-- `click`: Any click on the page with element details
-- `exit`: Clicks on external links
-- `close`: Page visibility changes
-- `session_end`: Before page unload
+#### 🚀 **`session_start`**
+- **When fired**: Immediately when the tracker is initialized
+- **Purpose**: Marks the beginning of a user session
+- **Data included**: Full browser info, scroll position, viewport details
+
+#### 👁️ **`impression`**
+- **When fired**: 
+  - Immediately when the tracker is initialized
+  - When the page gains focus (window focus event)
+- **Purpose**: Tracks page views and visibility
+- **Data included**: Complete browser context, scroll metrics, timestamp
+
+#### 🖱️ **`click`**
+- **When fired**: On any click event anywhere on the page
+- **Purpose**: Captures user interactions with detailed element context
+- **Additional data captured**:
+  - `browser_element_tag`: HTML tag name of clicked element
+  - `browser_element_id`: Element ID attribute
+  - `browser_element_class`: Element class names
+  - `browser_element_text`: Element text content (first 100 characters)
+
+#### 🔗 **`exit`**
+- **When fired**: When user clicks on external links (different hostname)
+- **Purpose**: Tracks exit intent and external navigation
+- **Trigger condition**: Link clicks where `link.hostname !== window.location.hostname`
+
+#### 🚪 **`close`**
+- **When fired**: When the page becomes hidden (visibility API)
+- **Purpose**: Tracks when users switch tabs or minimize the browser
+- **Browser support**: Uses `visibilitychange` event when `document.hidden` becomes true
+
+#### 🏁 **`session_end`**
+- **When fired**: Before the page unloads (`beforeunload` event)
+- **Purpose**: Marks the end of a user session
+- **Note**: Attempts to process any remaining queued events before page exit
 
 ### Tracking Custom Events
 
