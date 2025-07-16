@@ -93,7 +93,7 @@
         this.trackEvent(EVENT_TYPES.SESSION_START);
         setTimeout(function () {
             this.trackEvent(EVENT_TYPES.IMPRESSION);
-        }, 100);
+        }.bind(this), 100);
 
     };
 
