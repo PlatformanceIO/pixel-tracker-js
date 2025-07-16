@@ -441,12 +441,12 @@
         }
 
         // Track any potential missed viewability changes
-        addEvent(window, 'load', function () {
-            // Double check viewability after everything is loaded
-            if (document.visibilityState === 'visible') {
-                self.trackEvent(EVENT_TYPES.IMPRESSION);
-            }
-        });
+        // addEvent(window, 'load', function () {
+        //     // Double check viewability after everything is loaded
+        //     if (document.visibilityState === 'visible') {
+        //         self.trackEvent(EVENT_TYPES.IMPRESSION);
+        //     }
+        // });
 
 
         // Click events
