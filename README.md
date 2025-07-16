@@ -48,24 +48,13 @@ For optimal tracking without missing early page events, use the global queue pat
 
 ```html
 <head>
-    <!-- Initialize the global queue BEFORE the tracker script loads -->
     <script>
         window.pfQueue = window.pfQueue || [];
         
         // Queue events before the tracker loads
         pfQueue.push(['track', 'custom_early_event', { source: 'head' }]);
-        pfQueue.push(['track', 'page_load_start', { url: location.href }]);
+        pfQueue.push(['track', 'custom_conversion', { url: location.href }]);
     </script>
-</head>
-<body>
-    <!-- Your page content -->
-    
-    <!-- Add events during page construction -->
-    <script>
-        pfQueue.push(['track', 'dom_parsing', { element: 'body' }]);
-    </script>
-    
-    <!-- Load tracker at end of body -->
     <script src="https://pixel.data.platformance.io/tracker.js"></script>
     <script>
         // Initialize tracker - processes all queued events automatically
@@ -74,6 +63,9 @@ For optimal tracking without missing early page events, use the global queue pat
         // After initialization, events are sent directly
         pfTracker.trackEvent('tracker_ready', { timestamp: Date.now() });
     </script>
+</head>
+<body>
+  ...    
 </body>
 ```
 
