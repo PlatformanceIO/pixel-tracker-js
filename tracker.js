@@ -504,10 +504,13 @@
         for (var i = 0; i < scripts.length; i++) {
             var script = scripts[i];
             if (script.hasAttribute && script.hasAttribute('data-siteid')) {
-                // Check if this script's src contains tracker.js
+                // Check if this script's src contains tracker.js and is from the official domain
                 if (script.src && script.src.indexOf('tracker.js') !== -1) {
-                    currentScript = script;
-                    break;
+                    // Simple domain verification - check if URL starts with official domain
+                    if (script.src.indexOf('https://pixel.data.platformance.io/') === 0) {
+                        currentScript = script;
+                        break;
+                    }
                 }
             }
         }
