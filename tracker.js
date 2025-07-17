@@ -506,21 +506,10 @@
             if (script.hasAttribute && script.hasAttribute('data-siteid')) {
                 // Check if this script's src contains tracker.js and is from the official domain
                 if (script.src && script.src.indexOf('tracker.js') !== -1) {
-                    // More robust domain verification
-                    try {
-                        // Create a temporary anchor element to parse the URL
-                        var tempAnchor = document.createElement('a');
-                        tempAnchor.href = script.src;
-                        var hostname = tempAnchor.hostname;
-                        
-                        // Check if hostname is exactly pixel.data.platformance.io
-                        if (hostname === 'pixel.data.platformance.io') {
-                            currentScript = script;
-                            break;
-                        }
-                    } catch (e) {
-                        // If URL parsing fails, skip this script
-                        continue;
+                    // Simple domain verification - check if URL starts with official domain
+                    if (script.src.indexOf('https://pixel.data.platformance.io/') === 0) {
+                        currentScript = script;
+                        break;
                     }
                 }
             }
