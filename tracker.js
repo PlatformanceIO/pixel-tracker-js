@@ -498,7 +498,6 @@
     function autoInitialize() {
         // Prevent multiple initialization - if tracker already exists, don't initialize again
         if (window.pfTracker) {
-            console.log('PlatformanceTracker already initialized, skipping auto-initialization, Please make sure to have only one pixel.data.platformance.io/tracker.min.js script tag on the page');
             return;
         }
 
