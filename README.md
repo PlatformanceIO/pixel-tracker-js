@@ -32,7 +32,7 @@
 The simplest way to add the tracker is with a single script tag that automatically initializes:
 
 ```html
-<script data-siteid="YOUR_SITE_ID" src="https://pixel.data.platformance.io/tracker.js"></script>
+<script data-siteid="YOUR_SITE_ID" src="https://pixel.data.platformance.io/tracker.min.js"></script>
 ```
 
 That's it! The tracker will automatically:
