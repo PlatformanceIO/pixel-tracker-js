@@ -38,19 +38,22 @@ The simplest way to add the tracker is with a single script tag that automatical
 That's it! The tracker will automatically:
 - ✅ Initialize with your site ID
 - ✅ Start tracking immediately
-- ✅ Be available as `window.pfTracker`
+- ✅ Tracker available as `window.pfTracker`
+- ✅ Queue available as `window.pfQueue`
 - ✅ Begin collecting session and interaction data
 
-**Accessing the Auto-Initialized Tracker:**
-```javascript
-// The tracker is automatically available as window.pfTracker
-if (window.pfTracker) {
-    // Track custom events
-    window.pfTracker.trackEvent('custom_conversion', {
-        value: 100,
-        currency: 'USD'
-    });
-}
+**Sending Custom Events:**
+```html
+<script>
+
+  window.pfQueue = window.pfQueue || [];
+
+  window.pfQueue.push(['track', 'custom_signup', {
+    user_type: 'premium',
+    source: 'homepage'
+  }]);
+
+</script>
 ```
 
 ### ⚙️ Advanced Configuration
@@ -108,7 +111,7 @@ The tracker automatically captures the following events without any additional c
 
 There are two ways to track custom events with the Platformance tracker:
 
-#### 1. Array-Based Approach (Before Tracker Loads)
+#### Array-Based Approach (Before Tracker Loads)
 
 If you need to track events before the tracker script is fully loaded, you can initialize a global array and push events to it:
 
@@ -127,63 +130,12 @@ window.pfQueue.push(['track', 'custom_signup', {
     user_type: 'premium',
     source: 'homepage'
 }]);
-
-// Alternative queue name is also supported
-window.platformanceQueue = window.platformanceQueue || [];
-window.platformanceQueue.push(['track', 'custom_purchase', {
-    order_id: 'ORDER_456',
-    total: 250.99
-}]);
 ```
 
 The array command format is: `['track', 'event_name', {additional_data}]`
 
 **Alternative:** You can also use `'trackEvent'` as the action: `['trackEvent', 'event_name', {additional_data}]`
 
-#### 2. Direct API Approach (After Tracker Loads)
-
-Once the tracker is loaded and initialized, you can call the API directly:
-
-```javascript
-// Track custom events directly
-window.pfTracker.trackEvent('custom_event_name', {
-    custom_property: 'value'
-});
-
-// Examples
-window.pfTracker.trackEvent('custom_conversion', {
-    value: 100,
-    currency: 'USD'
-});
-
-window.pfTracker.trackEvent('custom_form_submit', {
-    form_id: 'contact_form',
-    fields_filled: 5
-});
-```
-
-#### Hybrid Approach
-
-You can use both approaches together. After the tracker loads, the array automatically converts to a function, so you can continue using the same syntax:
-
-```html
-<script>
-    // Works before tracker loads
-    window.pfQueue = window.pfQueue || [];
-    window.pfQueue.push(['track', 'early_event', {data: 'value'}]);
-</script>
-
-<!-- Load the tracker -->
-<script data-siteid="YOUR_SITE_ID" src="https://pixel.data.platformance.io/tracker.min.js"></script>
-
-<script>
-    // Works after tracker loads (array is now a function)
-    window.pfQueue.push(['track', 'late_event', {data: 'value'}]);
-    
-    // Or use direct API
-    window.pfTracker.trackEvent('direct_event', {data: 'value'});
-</script>
-```
 
 **Note:** Custom event names will automatically be prefixed with 'custom_' if not already present.
 
