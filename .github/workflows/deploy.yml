@@ -16,6 +16,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install terser for minification
+        run: npm install -g terser
+
+      - name: Create minified version
+        run: terser tracker.js --compress --mangle --output tracker.min.js
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -30,8 +41,15 @@ jobs:
             --cache-control "public, max-age=300" \
             --metadata-directive REPLACE
 
+      - name: Deploy tracker.min.js to S3
+        run: |
+          aws s3 cp tracker.min.js s3://pf-pixel-tag/tracker.min.js \
+            --content-type "application/javascript" \
+            --cache-control "public, max-age=300" \
+            --metadata-directive REPLACE
+
       - name: Invalidate CloudFront distribution
         run: |
           aws cloudfront create-invalidation \
             --distribution-id E25L56VGAU6FC \
-            --paths "/tracker.js"
+            --paths "/tracker.js" "/tracker.min.js"
