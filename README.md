@@ -27,14 +27,40 @@
 
 ## 🚀 Quick Start Configuration
 
-### Simple Setup
+### Auto-Initialization (Recommended)
 
-Simply add the following code to your HTML file, ideally right before the closing `</body>` tag:
+The simplest way to add the tracker is with a single script tag that automatically initializes:
+
+```html
+<script data-siteid="YOUR_SITE_ID" src="https://pixel.data.platformance.io/tracker.js"></script>
+```
+
+That's it! The tracker will automatically:
+- ✅ Initialize with your site ID
+- ✅ Start tracking immediately
+- ✅ Be available as `window.pfTracker`
+- ✅ Begin collecting session and interaction data
+
+**Accessing the Auto-Initialized Tracker:**
+```javascript
+// The tracker is automatically available as window.pfTracker
+if (window.pfTracker) {
+    // Track custom events
+    window.pfTracker.trackEvent('custom_conversion', {
+        value: 100,
+        currency: 'USD'
+    });
+}
+```
+
+### Manual Setup
+
+You can also initialize the tracker manually for more control:
 
 ```html
 <script src="https://pixel.data.platformance.io/tracker.js"></script>
 <script>
-    var pfTracker = new PlatformanceTracker('SITE_ID');
+    var pfTracker = new PlatformanceTracker('YOUR_SITE_ID');
     // custom events can be sent like this:
     // pfTracker.trackEvent('custom_event', {
     //     custom_property: 'value'
@@ -42,9 +68,9 @@ Simply add the following code to your HTML file, ideally right before the closin
 </script>
 ```
 
-### Global Queue Setup (Recommended)
+### Global Queue Setup (Advanced)
 
-For optimal tracking without missing early page events, use the global queue pattern:
+For optimal tracking without missing early page events, use the global queue pattern with manual initialization:
 
 ```html
 <head>
