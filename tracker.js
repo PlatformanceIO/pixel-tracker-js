@@ -503,35 +503,32 @@
 
         // Find the current script tag that loaded this tracker
         var scripts = document.getElementsByTagName('script');
-        var currentScript = null;
+        var siteId = null;
 
-        // Look for the script with data-siteid attribute
         for (var i = 0; i < scripts.length; i++) {
             var script = scripts[i];
-            if (script.hasAttribute && script.hasAttribute('data-siteid')) {
-                // Check if this script's src contains tracker.js and is from the official domain
-                if (script.src && script.src.indexOf('tracker.js') !== -1) {
-                    // Simple domain verification - check if URL starts with official domain
-                    if (script.src.indexOf('https://pixel.data.platformance.io/') === 0) {
-                        currentScript = script;
+            if (script.src && script.src.indexOf('tracker.js') !== -1) {
+                // Simple domain verification - check if URL starts with official domain
+                if (script.src.indexOf('https://pixel.data.platformance.io/') === 0) {
+                    // Try to extract siteid from query string
+                    var match = script.src.match(/[?&]siteid=([0-9a-zA-Z_-]+)/i);
+                    if (match && match[1]) {
+                        siteId = match[1];
                         break;
                     }
                 }
             }
         }
 
-        // If we found a script with data-siteid, auto-initialize the tracker
-        if (currentScript) {
-            var siteId = currentScript.getAttribute('data-siteid');
-            if (siteId) {
-                try {
-                    // Create the tracker instance and make it globally available
-                    window.pfTracker = new PlatformanceTracker(siteId);
-                } catch (e) {
-                    // Log error but don't break the page
-                    if (window.console && window.console.error) {
-                        console.error('PlatformanceTracker auto-initialization failed:', e);
-                    }
+        // If we found a siteId, auto-initialize the tracker
+        if (siteId) {
+            try {
+                // Create the tracker instance and make it globally available
+                window.pfTracker = new PlatformanceTracker(siteId);
+            } catch (e) {
+                // Log error but don't break the page
+                if (window.console && window.console.error) {
+                    console.error('PlatformanceTracker auto-initialization failed:', e);
                 }
             }
         }
