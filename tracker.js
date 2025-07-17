@@ -507,15 +507,11 @@
 
         for (var i = 0; i < scripts.length; i++) {
             var script = scripts[i];
-            if (script.src && script.src.indexOf('tracker.js') !== -1) {
-                // Simple domain verification - check if URL starts with official domain
-                if (script.src.indexOf('https://pixel.data.platformance.io/') === 0) {
-                    // Try to extract siteid from query string
-                    var match = script.src.match(/[?&]siteid=([0-9a-zA-Z_-]+)/i);
-                    if (match && match[1]) {
-                        siteId = match[1];
-                        break;
-                    }
+            if ((script.src && script.src.indexOf('tracker.min.js') !== -1) && (script.src.indexOf('https://pixel.data.platformance.io/') === 0)) {
+                var match = script.src.match(/[?&]siteid=([0-9a-zA-Z_-]+)/i);
+                if (match && match[1]) {
+                    siteId = match[1];
+                    break;
                 }
             }
         }
