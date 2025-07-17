@@ -496,6 +496,11 @@
 
     // Auto-initialization logic
     function autoInitialize() {
+        // Prevent multiple initialization - if tracker already exists, don't initialize again
+        if (window.pfTracker) {
+            return;
+        }
+        
         // Find the current script tag that loaded this tracker
         var scripts = document.getElementsByTagName('script');
         var currentScript = null;
