@@ -498,13 +498,14 @@
     function autoInitialize() {
         // Prevent multiple initialization - if tracker already exists, don't initialize again
         if (window.pfTracker) {
+            console.log('PlatformanceTracker already initialized, skipping auto-initialization, Please make sure to have only one pixel.data.platformance.io/tracker.min.js script tag on the page');
             return;
         }
-        
+
         // Find the current script tag that loaded this tracker
         var scripts = document.getElementsByTagName('script');
         var currentScript = null;
-        
+
         // Look for the script with data-siteid attribute
         for (var i = 0; i < scripts.length; i++) {
             var script = scripts[i];
@@ -519,7 +520,7 @@
                 }
             }
         }
-        
+
         // If we found a script with data-siteid, auto-initialize the tracker
         if (currentScript) {
             var siteId = currentScript.getAttribute('data-siteid');
@@ -542,7 +543,7 @@
         module.exports = PlatformanceTracker;
     } else {
         window.PlatformanceTracker = PlatformanceTracker;
-        
+
         // Auto-initialize if we're in a browser environment
         if (typeof document !== 'undefined') {
             // Run auto-initialization after DOM is ready or immediately if DOM is already ready
@@ -550,7 +551,7 @@
                 if (document.addEventListener) {
                     document.addEventListener('DOMContentLoaded', autoInitialize);
                 } else if (document.attachEvent) {
-                    document.attachEvent('onreadystatechange', function() {
+                    document.attachEvent('onreadystatechange', function () {
                         if (document.readyState !== 'loading') {
                             autoInitialize();
                         }
