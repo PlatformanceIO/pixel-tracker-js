@@ -494,10 +494,64 @@
         });
     };
 
+    // Auto-initialization logic
+    function autoInitialize() {
+        // Find the current script tag that loaded this tracker
+        var scripts = document.getElementsByTagName('script');
+        var currentScript = null;
+        
+        // Look for the script with data-siteid attribute
+        for (var i = 0; i < scripts.length; i++) {
+            var script = scripts[i];
+            if (script.hasAttribute && script.hasAttribute('data-siteid')) {
+                // Check if this script's src contains tracker.js
+                if (script.src && script.src.indexOf('tracker.js') !== -1) {
+                    currentScript = script;
+                    break;
+                }
+            }
+        }
+        
+        // If we found a script with data-siteid, auto-initialize the tracker
+        if (currentScript) {
+            var siteId = currentScript.getAttribute('data-siteid');
+            if (siteId) {
+                try {
+                    // Create the tracker instance and make it globally available
+                    window.pfTracker = new PlatformanceTracker(siteId);
+                } catch (e) {
+                    // Log error but don't break the page
+                    if (window.console && window.console.error) {
+                        console.error('PlatformanceTracker auto-initialization failed:', e);
+                    }
+                }
+            }
+        }
+    }
+
     // Export the tracker
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = PlatformanceTracker;
     } else {
         window.PlatformanceTracker = PlatformanceTracker;
+        
+        // Auto-initialize if we're in a browser environment
+        if (typeof document !== 'undefined') {
+            // Run auto-initialization after DOM is ready or immediately if DOM is already ready
+            if (document.readyState === 'loading') {
+                if (document.addEventListener) {
+                    document.addEventListener('DOMContentLoaded', autoInitialize);
+                } else if (document.attachEvent) {
+                    document.attachEvent('onreadystatechange', function() {
+                        if (document.readyState !== 'loading') {
+                            autoInitialize();
+                        }
+                    });
+                }
+            } else {
+                // DOM is already ready, initialize immediately
+                autoInitialize();
+            }
+        }
     }
 })(typeof window !== 'undefined' ? window : this);
