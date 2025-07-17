@@ -507,7 +507,7 @@
 
         for (var i = 0; i < scripts.length; i++) {
             var script = scripts[i];
-            if ((script.src && script.src.indexOf('tracker.min.js') !== -1) && (script.src.indexOf('https://pixel.data.platformance.io/') === 0)) {
+            if (script.src && script.src.includes('https://pixel.data.platformance.io/tracker.min.js')) {
                 var match = script.src.match(/[?&]siteid=([0-9a-zA-Z_-]+)/i);
                 if (match && match[1]) {
                     siteId = match[1];
