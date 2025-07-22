@@ -71,6 +71,7 @@
         this.apiBase = this.options.apiBase || 'https://events.data.platformance.io';
         this.sessionId = this.generateSessionId();
         this.userId = null; // Will be set after fingerprint is ready
+        this.storageClient = null; // Will be set after storage layer is loaded
         this.lastScrollPosition = 0;
         this.lastScrollTime = this.now();
         this.queue = [];
@@ -95,19 +96,69 @@
         }
     };
 
+    PlatformanceTracker.prototype.loadStorageLayerClient = function () {
+        var self = this;
+        return new Promise(function (resolve) {
+            // Check if storage layer client is already loaded and connected
+            if (self.storageClient && self.storageClient.connected) {
+                self.log('Storage layer client already loaded and connected');
+                resolve();
+                return;
+            }
+
+            var script = document.createElement('script');
+            script.src = 'https://pixel.data.platformance.io/storage-layer/client.min.js';
+            script.async = true;
+
+            script.onload = function () {
+                self.log('Storage layer client script loaded successfully');
+
+                // Initialize the CrossStorageClient
+                try {
+                    self.storageClient = new CrossStorageClient('https://pixel.data.platformance.io/storage-layer/hub.html');
+                    self.log('CrossStorageClient instantiated, waiting for connection...');
+
+                    // Wait for the storage client to connect
+                    self.storageClient.onConnect().then(function () {
+                        self.log('CrossStorageClient connected and ready!');
+                        resolve();
+                    }).catch(function (error) {
+                        self.log('CrossStorageClient connection failed:', error);
+                        resolve(); // Resolve anyway to not block tracker initialization
+                    });
+
+                } catch (error) {
+                    self.log('Failed to instantiate CrossStorageClient:', error);
+                    resolve(); // Resolve anyway to not block tracker initialization
+                }
+            };
+
+            script.onerror = function () {
+                self.log('Failed to load storage layer client script, continuing without it');
+                resolve(); // Resolve anyway to not block tracker initialization
+            };
+
+            document.head.appendChild(script);
+        });
+    };
+
     PlatformanceTracker.prototype.initialize = function () {
         var self = this;
 
-        self.log('Initializing PlatformanceTracker, waiting for user ID...');
+        self.log('Initializing PlatformanceTracker, loading storage layer client...');
 
-        // Generate user ID first (this returns a Promise)
-        this.generateUserId()
+        // Load storage layer client first, wait for connection, then generate user ID
+        this.loadStorageLayerClient()
+            .then(function () {
+                self.log('Storage layer client ready, now generating user ID...');
+                return self.generateUserId();
+            })
             .then(function (userId) {
                 self.userId = userId;
                 self.isInitialized = true;
                 self.log('PlatformanceTracker initialized with user ID:', userId);
 
-                // Now start processing everything
+                // Now start processing everything - moved inside the "ready" state
                 self.processGlobalQueue();
 
                 // Process any pending events that were queued before initialization
@@ -185,6 +236,10 @@
 
     PlatformanceTracker.prototype.getUserId = function () {
         return this.userId;
+    };
+
+    PlatformanceTracker.prototype.getStorageClient = function () {
+        return this.storageClient;
     };
 
     PlatformanceTracker.prototype.processGlobalQueue = function () {
