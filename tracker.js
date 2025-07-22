@@ -245,11 +245,8 @@
 
                 // Store the fingerprint user ID using storage client
                 if (self.storageClient) {
-                    self.storageClient.set('platformance_user_id', visitorId).then(function () {
-                        self.log('User ID stored successfully via storage client');
-                    }).catch(function (error) {
-                        self.log('Failed to store user ID via storage client:', error);
-                    });
+                    self.storageClient.set('platformance_user_id', visitorId);
+                    self.log('User ID stored successfully via storage client');
                 } else {
                     self.log('No storage client available, user ID not persisted');
                 }
@@ -495,7 +492,7 @@
                 xhr.withCredentials = false;
 
                 xhr.onreadystatechange = function () {
-                    self.log('XHR state changed:', xhr.readyState, 'Status:', xhr.status);
+                    // self.log('XHR state changed:', xhr.readyState, 'Status:', xhr.status);
                     if (xhr.readyState === 4) {
                         var success = xhr.status >= 200 && xhr.status < 300;
                         if (success) {
@@ -552,7 +549,7 @@
                 });
 
                 var jsonPayload = JSON.stringify(payload);
-                self.log('Stringified payload:', jsonPayload);
+                // self.log('Stringified payload:', jsonPayload);
 
                 xhr.send(jsonPayload);
             } catch (e) {
