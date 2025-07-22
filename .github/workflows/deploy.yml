@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'tracker.js'
   workflow_dispatch:
 
 jobs:
@@ -48,8 +46,37 @@ jobs:
             --cache-control "public, max-age=300" \
             --metadata-directive REPLACE
 
+      - name: Deploy storage-layer files to S3
+        run: |
+          # Deploy JavaScript files
+          aws s3 cp storage-layer/client.js s3://pf-pixel-tag/storage-layer/client.js \
+            --content-type "application/javascript" \
+            --cache-control "public, max-age=300" \
+            --metadata-directive REPLACE
+
+          aws s3 cp storage-layer/client.min.js s3://pf-pixel-tag/storage-layer/client.min.js \
+            --content-type "application/javascript" \
+            --cache-control "public, max-age=300" \
+            --metadata-directive REPLACE
+
+          aws s3 cp storage-layer/hub.js s3://pf-pixel-tag/storage-layer/hub.js \
+            --content-type "application/javascript" \
+            --cache-control "public, max-age=300" \
+            --metadata-directive REPLACE
+
+          aws s3 cp storage-layer/hub.min.js s3://pf-pixel-tag/storage-layer/hub.min.js \
+            --content-type "application/javascript" \
+            --cache-control "public, max-age=300" \
+            --metadata-directive REPLACE
+
+          # Deploy HTML file
+          aws s3 cp storage-layer/hub.html s3://pf-pixel-tag/storage-layer/hub.html \
+            --content-type "text/html" \
+            --cache-control "public, max-age=300" \
+            --metadata-directive REPLACE
+
       - name: Invalidate CloudFront distribution
         run: |
           aws cloudfront create-invalidation \
             --distribution-id E25L56VGAU6FC \
-            --paths "/tracker.js" "/tracker.min.js"
+            --paths "/tracker.js" "/tracker.min.js" "/storage-layer/*"
