@@ -255,11 +255,12 @@
         var payload = {
             event_type: eventType,
             timestamp: new Date().toISOString(),
-            retry_count: 0
+            retry_count: 0,
+            additional_data: additionalData || {}
         };
 
-        // Merge all data
-        Object.assign(payload, browserInfo, scrollInfo, additionalData || {});
+        // Merge browser and scroll info, but keep additionalData separate
+        Object.assign(payload, browserInfo, scrollInfo);
 
         this.queue.push(payload);
         this.log('Event queued:', eventType, payload);
@@ -389,6 +390,15 @@
                 var payload = Object.assign({}, event);
                 delete payload.event_type;
                 delete payload.retry_count;
+
+                // Extract additional_data and send it as arbitrary_data
+                var additionalData = payload.additional_data || {};
+                delete payload.additional_data;
+
+                // Add arbitrary_data as JSON stringified
+                if (Object.keys(additionalData).length > 0) {
+                    payload.arbitrary_data = JSON.stringify(additionalData);
+                }
 
                 self.log('Sending payload:', {
                     url: url,
