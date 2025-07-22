@@ -204,10 +204,30 @@
 
     PlatformanceTracker.prototype.generateUserId = function () {
         var self = this;
-        var storedUserId = localStorage.getItem('platformance_user_id');
-        if (storedUserId) {
-            return Promise.resolve(storedUserId);
+
+        // Check if we have a stored user ID using the storage client
+        if (self.storageClient) {
+            return self.storageClient.get('platformance_user_id').then(function (storedUserId) {
+                if (storedUserId) {
+                    self.log('Found stored user ID:', storedUserId);
+                    return storedUserId;
+                }
+
+                // No stored ID found, generate a new one
+                return self.generateNewUserId();
+            }).catch(function (error) {
+                self.log('Error getting stored user ID, generating new one:', error);
+                return self.generateNewUserId();
+            });
+        } else {
+            // Fallback to generating new ID if no storage client
+            self.log('No storage client available, generating new user ID');
+            return self.generateNewUserId();
         }
+    };
+
+    PlatformanceTracker.prototype.generateNewUserId = function () {
+        var self = this;
 
         // Get FingerprintJS visitorId (required, no fallback)
         return import('https://fpjscdn.net/v3/TbkpbBFNZYNv2uCOZqDD')
@@ -223,8 +243,17 @@
                 var visitorId = result.visitorId;
                 self.log('FingerprintJS visitorId:', visitorId);
 
-                // Store the fingerprint user ID
-                localStorage.setItem('platformance_user_id', visitorId);
+                // Store the fingerprint user ID using storage client
+                if (self.storageClient) {
+                    self.storageClient.set('platformance_user_id', visitorId).then(function () {
+                        self.log('User ID stored successfully via storage client');
+                    }).catch(function (error) {
+                        self.log('Failed to store user ID via storage client:', error);
+                    });
+                } else {
+                    self.log('No storage client available, user ID not persisted');
+                }
+
                 self.userId = visitorId;
                 return visitorId;
             })
