@@ -70,7 +70,7 @@
         this.options = options || {};
         this.apiBase = this.options.apiBase || 'https://events.data.platformance.io';
         this.sessionId = this.generateSessionId();
-        this.userId = this.generateUserId();
+        this.userId = null; // Will be set after fingerprint is ready
         this.lastScrollPosition = 0;
         this.lastScrollTime = this.now();
         this.queue = [];
@@ -79,22 +79,10 @@
         this.batchSize = this.options.batchSize || 10;
         this.batchTimeout = this.options.batchTimeout || 1000;
         this.debug = this.options.debug || false;
+        this.isInitialized = false;
 
-        // Process any queued events from global array
-        this.processGlobalQueue();
-
-        // Start batch processing immediately
-        this.processBatchedEvents();
-
-        // Initialize event listeners
-        this.initializeEventListeners();
-
-        // Track initial events immediately instead of waiting for load
-        this.trackEvent(EVENT_TYPES.SESSION_START);
-        setTimeout(function () {
-            this.trackEvent(EVENT_TYPES.IMPRESSION);
-        }.bind(this), 1500);
-
+        // Initialize the tracker after getting the user ID
+        this.initialize();
     };
 
     PlatformanceTracker.prototype.now = function () {
@@ -105,6 +93,52 @@
         if (this.debug && window.console && window.console.log) {
             console.log.apply(console, arguments);
         }
+    };
+
+    PlatformanceTracker.prototype.initialize = function () {
+        var self = this;
+
+        self.log('Initializing PlatformanceTracker, waiting for user ID...');
+
+        // Generate user ID first (this returns a Promise)
+        this.generateUserId()
+            .then(function (userId) {
+                self.userId = userId;
+                self.isInitialized = true;
+                self.log('PlatformanceTracker initialized with user ID:', userId);
+
+                // Now start processing everything
+                self.processGlobalQueue();
+
+                // Process any pending events that were queued before initialization
+                if (self.pendingEvents && self.pendingEvents.length > 0) {
+                    self.log('Processing pending events:', self.pendingEvents.length);
+                    for (var i = 0; i < self.pendingEvents.length; i++) {
+                        var pendingEvent = self.pendingEvents[i];
+                        var action = pendingEvent[0];
+                        var eventType = pendingEvent[1];
+                        var additionalData = pendingEvent[2];
+
+                        if (action === 'track' || action === 'trackEvent') {
+                            self.trackEvent(eventType, additionalData);
+                        }
+                    }
+                    self.pendingEvents = [];
+                }
+
+                self.processBatchedEvents();
+                self.initializeEventListeners();
+
+                // Track initial events
+                self.trackEvent(EVENT_TYPES.SESSION_START);
+                setTimeout(function () {
+                    self.trackEvent(EVENT_TYPES.IMPRESSION);
+                }, 1500);
+            })
+            .catch(function (error) {
+                self.log('Failed to initialize PlatformanceTracker:', error);
+                // Don't initialize if we can't get the fingerprint
+            });
     };
 
     PlatformanceTracker.prototype.generateSessionId = function () {
@@ -121,48 +155,35 @@
         var self = this;
         var storedUserId = localStorage.getItem('platformance_user_id');
         if (storedUserId) {
-            return storedUserId;
+            return Promise.resolve(storedUserId);
         }
 
-        // Try to get FingerprintJS visitorId
-        try {
-            var fpPromise = import('https://fpjscdn.net/v3/TbkpbBFNZYNv2uCOZqDD')
-                .then(function (FingerprintJS) {
-                    return FingerprintJS.load({
-                        region: "eu"
-                    });
+        // Get FingerprintJS visitorId (required, no fallback)
+        return import('https://fpjscdn.net/v3/TbkpbBFNZYNv2uCOZqDD')
+            .then(function (FingerprintJS) {
+                return FingerprintJS.load({
+                    region: "eu"
                 });
+            })
+            .then(function (fp) {
+                return fp.get();
+            })
+            .then(function (result) {
+                var visitorId = result.visitorId;
+                self.log('FingerprintJS visitorId:', visitorId);
 
-            fpPromise
-                .then(function (fp) {
-                    return fp.get();
-                })
-                .then(function (result) {
-                    var visitorId = result.visitorId;
-                    self.log('FingerprintJS visitorId:', visitorId);
-
-                    // Update the stored user ID with the fingerprint
-                    localStorage.setItem('platformance_user_id', visitorId);
-                    self.userId = visitorId;
-                })
-                .catch(function (error) {
-                    self.log('FingerprintJS failed, using fallback:', error);
-                    // Fallback already set below
-                });
-        } catch (error) {
-            self.log('FingerprintJS import failed, using fallback:', error);
-        }
-
-        // Fallback user ID (will be replaced by FingerprintJS if successful)
-        var fallbackUserId = 'user_' + this.generateSessionId();
-        localStorage.setItem('platformance_user_id', fallbackUserId);
-        return fallbackUserId;
+                // Store the fingerprint user ID
+                localStorage.setItem('platformance_user_id', visitorId);
+                self.userId = visitorId;
+                return visitorId;
+            })
+            .catch(function (error) {
+                self.log('FingerprintJS failed:', error);
+                throw new Error('Failed to generate user ID with FingerprintJS: ' + error.message);
+            });
     };
 
     PlatformanceTracker.prototype.getUserId = function () {
-        if (!this.userId) {
-            this.userId = this.generateUserId();
-        }
         return this.userId;
     };
 
@@ -208,7 +229,17 @@
                 var additionalData = args[2] || {};
 
                 if (action === 'track' || action === 'trackEvent') {
-                    self.trackEvent(eventType, additionalData);
+                    // If not initialized yet, queue the event for later processing
+                    if (!self.isInitialized) {
+                        self.log('Queueing event until initialization:', eventType);
+                        // Store in a temporary queue until initialized
+                        if (!self.pendingEvents) {
+                            self.pendingEvents = [];
+                        }
+                        self.pendingEvents.push([action, eventType, additionalData]);
+                    } else {
+                        self.trackEvent(eventType, additionalData);
+                    }
                 } else if (action === 'config' && eventType && typeof eventType === 'object') {
                     Object.assign(self.options, eventType);
                 }
@@ -463,6 +494,12 @@
     };
 
     PlatformanceTracker.prototype.trackEvent = function (eventType, additionalData) {
+        // Only track events if the tracker is initialized (has fingerprint user ID)
+        if (!this.isInitialized) {
+            this.log('Tracker not initialized yet, skipping event:', eventType);
+            return;
+        }
+
         try {
             var validatedEventType = this.validateAndFormatEventType(eventType);
             this.addToQueue(validatedEventType, additionalData);
