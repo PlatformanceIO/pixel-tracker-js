@@ -585,7 +585,8 @@
 
         for (var i = 0; i < scripts.length; i++) {
             var script = scripts[i];
-            if ((script.src.includes('localhost') || script.src.includes('127.0.0.1')) || (script.src && script.src.includes('https://pixel.data.platformance.io/tracker.min.js'))) {
+            // if ((script.src.includes('localhost') || script.src.includes('127.0.0.1')) || (script.src && script.src.includes('https://pixel.data.platformance.io/tracker.min.js'))) {
+            if (script.src && script.src.includes('https://pixel.data.platformance.io/tracker.min.js')) {
                 var match = script.src.match(/[?&]siteid=([0-9a-zA-Z_-]+)/i);
                 if (match && match[1]) {
                     siteId = match[1];
