@@ -666,14 +666,27 @@
         // Find the current script tag that loaded this tracker
         var scripts = document.getElementsByTagName('script');
         var siteId = null;
+        var debugMode = false;
 
         for (var i = 0; i < scripts.length; i++) {
             var script = scripts[i];
-            // if ((script.src.includes('localhost') || script.src.includes('127.0.0.1')) || (script.src && script.src.includes('https://pixel.data.platformance.io/tracker.min.js'))) {
-            if (script.src && script.src.includes('https://pixel.data.platformance.io/tracker.min.js')) {
+            // Check for both localhost and production URLs
+            if (
+                script.src &&
+                (
+                    script.src.includes('https://pixel.data.platformance.io/tracker.min.js') ||
+                    script.src.includes('http://localhost:5500/tracker.js')
+                )
+            ) {
                 var match = script.src.match(/[?&]siteid=([0-9a-zA-Z_-]+)/i);
                 if (match && match[1]) {
                     siteId = match[1];
+
+                    // Check for debug parameter
+                    var debugMatch = script.src.match(/[?&]debug=(true|1)/i);
+                    if (debugMatch) {
+                        debugMode = true;
+                    }
                     break;
                 }
             }
@@ -682,8 +695,12 @@
         // If we found a siteId, auto-initialize the tracker
         if (siteId) {
             try {
-                // Create the tracker instance and make it globally available
-                window.pfTracker = new PlatformanceTracker(siteId);
+                // Create the tracker instance with debug option and make it globally available
+                var options = {};
+                if (debugMode) {
+                    options.debug = true;
+                }
+                window.pfTracker = new PlatformanceTracker(siteId, options);
             } catch (e) {
                 // Log error but don't break the page
                 if (window.console && window.console.error) {
