@@ -365,7 +365,8 @@
             browser_pathname: window.location.pathname || '',
             browser_query_string: window.location.search || '',
             browser_session_id: this.sessionId,
-            browser_user_id: this.getUserId()
+            browser_user_id: this.getUserId(),
+            user_id: this.getUserId()
         };
     };
 
