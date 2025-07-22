@@ -118,14 +118,45 @@
     };
 
     PlatformanceTracker.prototype.generateUserId = function () {
+        var self = this;
         var storedUserId = localStorage.getItem('platformance_user_id');
         if (storedUserId) {
             return storedUserId;
         }
 
-        var userId = 'user_' + this.generateSessionId();
-        localStorage.setItem('platformance_user_id', userId);
-        return userId;
+        // Try to get FingerprintJS visitorId
+        try {
+            var fpPromise = import('https://fpjscdn.net/v3/TbkpbBFNZYNv2uCOZqDD')
+                .then(function (FingerprintJS) {
+                    return FingerprintJS.load({
+                        region: "eu"
+                    });
+                });
+
+            fpPromise
+                .then(function (fp) {
+                    return fp.get();
+                })
+                .then(function (result) {
+                    var visitorId = result.visitorId;
+                    self.log('FingerprintJS visitorId:', visitorId);
+
+                    // Update the stored user ID with the fingerprint
+                    localStorage.setItem('platformance_user_id', visitorId);
+                    self.userId = visitorId;
+                })
+                .catch(function (error) {
+                    self.log('FingerprintJS failed, using fallback:', error);
+                    // Fallback already set below
+                });
+        } catch (error) {
+            self.log('FingerprintJS import failed, using fallback:', error);
+        }
+
+        // Fallback user ID (will be replaced by FingerprintJS if successful)
+        var fallbackUserId = 'user_' + this.generateSessionId();
+        localStorage.setItem('platformance_user_id', fallbackUserId);
+        return fallbackUserId;
     };
 
     PlatformanceTracker.prototype.getUserId = function () {
@@ -517,7 +548,7 @@
 
         for (var i = 0; i < scripts.length; i++) {
             var script = scripts[i];
-            if (script.src && script.src.includes('https://pixel.data.platformance.io/tracker.min.js')) {
+            if ((script.src.includes('localhost') || script.src.includes('127.0.0.1')) || (script.src && script.src.includes('https://pixel.data.platformance.io/tracker.min.js'))) {
                 var match = script.src.match(/[?&]siteid=([0-9a-zA-Z_-]+)/i);
                 if (match && match[1]) {
                     siteId = match[1];
