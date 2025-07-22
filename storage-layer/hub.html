@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="hub.js"></script>
+    <script>
+        // Config s.t. subdomains can get, but only the root domain can set and del
+        window.addEventListener('DOMContentLoaded', function () {
+            CrossStorageHub.init([
+                { origin: /.*/, allow: ['get', 'set', 'del'] }
+            ]);
+        });
+
+    </script>
+</head>
+
+<body>
+
+</body>
+
+</html>
