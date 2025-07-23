@@ -188,7 +188,24 @@
             })
             .catch(function (error) {
                 self.log('Failed to initialize PlatformanceTracker:', error);
-                // Don't initialize if we can't get the fingerprint
+                // Try to initialize with a basic fallback ID as last resort
+                try {
+                    self.userId = 'fallback_' + self.generateSessionId();
+                    self.isInitialized = true;
+                    self.log('PlatformanceTracker initialized with fallback user ID:', self.userId);
+
+                    self.processGlobalQueue();
+                    self.processBatchedEvents();
+                    self.initializeEventListeners();
+
+                    // Track initial events
+                    self.trackEvent(EVENT_TYPES.SESSION_START);
+                    setTimeout(function () {
+                        self.trackEvent(EVENT_TYPES.IMPRESSION);
+                    }, 1500);
+                } catch (fallbackError) {
+                    self.log('Complete initialization failure:', fallbackError);
+                }
             });
     };
 
@@ -229,7 +246,7 @@
     PlatformanceTracker.prototype.generateNewUserId = function () {
         var self = this;
 
-        // Get FingerprintJS visitorId (required, no fallback)
+        // Try FingerprintJS first, fallback to local ID generation if it fails
         return import('https://fpjscdn.net/v3/TbkpbBFNZYNv2uCOZqDD')
             .then(function (FingerprintJS) {
                 return FingerprintJS.load({
@@ -255,9 +272,58 @@
                 return visitorId;
             })
             .catch(function (error) {
-                self.log('FingerprintJS failed:', error);
-                throw new Error('Failed to generate user ID with FingerprintJS: ' + error.message);
+                self.log('FingerprintJS failed, falling back to local ID generation:', error);
+                return self.generateLocalUserId();
             });
+    };
+
+    PlatformanceTracker.prototype.generateLocalUserId = function () {
+        var self = this;
+
+        // Generate a local user ID based on browser characteristics
+        var nav = window.navigator || {};
+        var screen = window.screen || {};
+
+        // Collect browser characteristics for fingerprinting
+        var characteristics = [
+            nav.userAgent || '',
+            nav.language || '',
+            nav.platform || '',
+            screen.width || 0,
+            screen.height || 0,
+            screen.colorDepth || 0,
+            window.devicePixelRatio || 1,
+            new Date().getTimezoneOffset(),
+            nav.hardwareConcurrency || 0,
+            nav.maxTouchPoints || 0
+        ].join('|');
+
+        // Create a simple hash of the characteristics
+        var hash = 0;
+        for (var i = 0; i < characteristics.length; i++) {
+            var char = characteristics.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+
+        // Convert to positive number and add timestamp for uniqueness
+        var localId = 'local_' + Math.abs(hash).toString(36) + '_' + this.now().toString(36);
+
+        self.log('Generated local user ID:', localId);
+
+        // Store the local user ID using storage client
+        if (self.storageClient) {
+            self.storageClient.set('platformance_user_id', localId).then(function () {
+                self.log('Local user ID stored successfully via storage client');
+            }).catch(function (error) {
+                self.log('Failed to store local user ID:', error);
+            });
+        } else {
+            self.log('No storage client available, local user ID not persisted');
+        }
+
+        self.userId = localId;
+        return Promise.resolve(localId);
     };
 
     PlatformanceTracker.prototype.getUserId = function () {

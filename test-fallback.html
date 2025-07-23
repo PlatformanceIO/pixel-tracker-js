@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Fallback User ID Generation</title>
+</head>
+
+<body>
+    <h1>Test Fallback User ID Generation</h1>
+    <div id="output"></div>
+
+    <script>
+        // Mock FingerprintJS to fail and test the fallback
+        window.originalImport = window.import;
+
+        // Override import to simulate FingerprintJS failure
+        if (typeof window.import === 'undefined') {
+            window.import = function (url) {
+                if (url.includes('fpjscdn.net')) {
+                    return Promise.reject(new Error('Simulated FingerprintJS failure'));
+                }
+                return Promise.reject(new Error('Import not supported'));
+            };
+        }
+    </script>
+
+    <script src="tracker.js"></script>
+
+    <script>
+        // Test the tracker with simulated FingerprintJS failure
+        console.log('Testing fallback user ID generation...');
+
+        var tracker = new PlatformanceTracker('test-site-id', { debug: true });
+
+        // Wait a bit for initialization to complete
+        setTimeout(function () {
+            var userId = tracker.getUserId();
+            document.getElementById('output').innerHTML =
+                '<p>User ID: ' + (userId || 'Not generated') + '</p>' +
+                '<p>Is Initialized: ' + tracker.isInitialized + '</p>' +
+                '<p>Check console for detailed logs</p>';
+        }, 3000);
+    </script>
+</body>
+
+</html>
