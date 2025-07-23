@@ -395,16 +395,41 @@
         var self = this;
         var browserInfo = this.getBrowserInfo();
         var scrollInfo = this.calculateScrollInfo();
+        var processedAdditionalData = additionalData || {};
+
+        // Whitelist of allowed browser properties that can be set directly in payload
+        var allowedBrowserProperties = [
+            'browser_element_tag',
+            'browser_element_id',
+            'browser_element_class',
+            'browser_element_text'
+        ];
+
+        // Separate whitelisted browser properties from arbitrary data
+        var browserProperties = {};
+        var arbitraryData = {};
+
+        for (var key in processedAdditionalData) {
+            if (processedAdditionalData.hasOwnProperty(key)) {
+                if (allowedBrowserProperties.indexOf(key) !== -1) {
+                    // Whitelisted browser property - add to browserProperties only
+                    browserProperties[key] = processedAdditionalData[key];
+                } else {
+                    // Non-whitelisted property - add to arbitraryData only
+                    arbitraryData[key] = processedAdditionalData[key];
+                }
+            }
+        }
 
         var payload = {
             event_type: eventType,
             timestamp: new Date().toISOString(),
             retry_count: 0,
-            additional_data: additionalData || {}
+            additional_data: Object.keys(arbitraryData).length > 0 ? arbitraryData : {}
         };
 
-        // Merge browser and scroll info, but keep additionalData separate
-        Object.assign(payload, browserInfo, scrollInfo);
+        // Merge browser and scroll info, plus whitelisted browser properties from additionalData
+        Object.assign(payload, browserInfo, scrollInfo, browserProperties);
 
         this.queue.push(payload);
         this.log('Event queued:', eventType, payload);
