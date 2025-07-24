@@ -71,6 +71,7 @@
         this.apiBase = this.options.apiBase || 'https://events.data.platformance.io';
         this.sessionId = this.generateSessionId();
         this.userId = null; // Will be set after fingerprint is ready
+        this.userIdType = null; // Will be set to 'fingerprint' or 'local' when user ID is generated
         this.storageClient = null; // Will be set after storage layer is loaded
         this.siteConfig = null; // Will be set after config is loaded
         this.lastScrollPosition = 0;
@@ -250,6 +251,7 @@
                 // Try to initialize with a basic fallback ID as last resort
                 try {
                     self.userId = 'fallback_' + self.generateSessionId();
+                    self.userIdType = 'local'; // Fallback is considered local type
                     self.isInitialized = true;
                     self.log('PlatformanceTracker initialized with fallback user ID:', self.userId);
 
@@ -286,6 +288,13 @@
             return self.storageClient.get('platformance_user_id').then(function (storedUserId) {
                 if (storedUserId) {
                     self.log('Found stored user ID:', storedUserId);
+                    self.userId = storedUserId;
+                    // Determine user ID type based on the stored ID format
+                    if (storedUserId.startsWith('local_')) {
+                        self.userIdType = 'local';
+                    } else {
+                        self.userIdType = 'fingerprint';
+                    }
                     return storedUserId;
                 }
 
@@ -331,6 +340,7 @@
                     }
 
                     self.userId = visitorId;
+                    self.userIdType = 'fingerprint';
                     return visitorId;
                 })
                 .catch(function (error) {
@@ -393,11 +403,16 @@
         }
 
         self.userId = localId;
+        self.userIdType = 'local';
         return Promise.resolve(localId);
     };
 
     PlatformanceTracker.prototype.getUserId = function () {
         return this.userId;
+    };
+
+    PlatformanceTracker.prototype.getUserIdType = function () {
+        return this.userIdType;
     };
 
     PlatformanceTracker.prototype.getStorageClient = function () {
@@ -506,7 +521,8 @@
             browser_query_string: window.location.search || '',
             browser_session_id: this.sessionId,
             browser_user_id: this.getUserId(),
-            user_id: this.getUserId()
+            user_id: this.getUserId(),
+            user_id_type: this.userIdType || 'unknown'
         };
     };
 
