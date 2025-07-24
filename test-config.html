@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Configuration Loading</title>
+</head>
+
+<body>
+    <h1>Test Configuration Loading</h1>
+    <div id="status">Loading...</div>
+    <div id="config"></div>
+    <div id="userId"></div>
+
+    <script src="tracker.js"></script>
+    <script>
+        // Test the tracker with a specific site ID
+        var tracker = new PlatformanceTracker('1752672874717', { debug: true });
+
+        // Wait a bit for initialization and then display results
+        setTimeout(function () {
+            var statusEl = document.getElementById('status');
+            var configEl = document.getElementById('config');
+            var userIdEl = document.getElementById('userId');
+
+            if (tracker.isInitialized) {
+                statusEl.innerHTML = '<span style="color: green;">✓ Tracker initialized successfully</span>';
+
+                var config = tracker.getSiteConfig();
+                if (config) {
+                    configEl.innerHTML = '<h3>Site Configuration:</h3><pre>' + JSON.stringify(config, null, 2) + '</pre>';
+                }
+
+                var userId = tracker.getUserId();
+                if (userId) {
+                    userIdEl.innerHTML = '<h3>User ID:</h3><p>' + userId + '</p>';
+
+                    // Check if fingerprinting was used or local ID was generated
+                    if (userId.startsWith('local_')) {
+                        userIdEl.innerHTML += '<p style="color: orange;">Local ID generated (fingerprinting disabled or failed)</p>';
+                    } else if (userId.startsWith('fallback_')) {
+                        userIdEl.innerHTML += '<p style="color: red;">Fallback ID used (initialization failed)</p>';
+                    } else {
+                        userIdEl.innerHTML += '<p style="color: green;">FingerprintJS ID used</p>';
+                    }
+                }
+            } else {
+                statusEl.innerHTML = '<span style="color: red;">✗ Tracker failed to initialize</span>';
+            }
+        }, 3000);
+
+        // Test custom event tracking
+        setTimeout(function () {
+            if (tracker.isInitialized) {
+                console.log('Tracking custom event...');
+                tracker.trackEvent('test_config_load', { test: true });
+            }
+        }, 4000);
+    </script>
+</body>
+
+</html>

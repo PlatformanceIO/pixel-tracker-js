@@ -72,6 +72,7 @@
         this.sessionId = this.generateSessionId();
         this.userId = null; // Will be set after fingerprint is ready
         this.storageClient = null; // Will be set after storage layer is loaded
+        this.siteConfig = null; // Will be set after config is loaded
         this.lastScrollPosition = 0;
         this.lastScrollTime = this.now();
         this.queue = [];
@@ -82,7 +83,7 @@
         this.debug = this.options.debug || false;
         this.isInitialized = false;
 
-        // Initialize the tracker after getting the user ID
+        // Initialize the tracker after loading config and getting the user ID
         this.initialize();
     };
 
@@ -94,6 +95,60 @@
         if (this.debug && window.console && window.console.log) {
             console.log.apply(console, arguments);
         }
+    };
+
+    PlatformanceTracker.prototype.loadSiteConfig = function () {
+        var self = this;
+        return new Promise(function (resolve) {
+            var configUrl = 'https://pixel.data.platformance.io/sites/' + self.siteId + '.json';
+
+            self.log('Loading site configuration from:', configUrl);
+
+            var xhr = new XMLHttpRequest();
+            xhr.timeout = 5000; // 5 second timeout
+
+            xhr.open('GET', configUrl, true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try {
+                            var config = JSON.parse(xhr.responseText);
+                            self.siteConfig = config;
+                            self.log('Site configuration loaded successfully:', config);
+                            resolve(config);
+                        } catch (error) {
+                            self.log('Failed to parse site configuration:', error);
+                            // Use default config if parsing fails
+                            self.siteConfig = { enable_fingerprint: false };
+                            resolve(self.siteConfig);
+                        }
+                    } else {
+                        self.log('Failed to load site configuration, status:', xhr.status);
+                        // Use default config if request fails
+                        self.siteConfig = { enable_fingerprint: false };
+                        resolve(self.siteConfig);
+                    }
+                }
+            };
+
+            xhr.onerror = function () {
+                self.log('Network error loading site configuration');
+                // Use default config if network error
+                self.siteConfig = { enable_fingerprint: true };
+                resolve(self.siteConfig);
+            };
+
+            xhr.ontimeout = function () {
+                self.log('Timeout loading site configuration');
+                // Use default config if timeout
+                self.siteConfig = { enable_fingerprint: true };
+                resolve(self.siteConfig);
+            };
+
+            xhr.send();
+        });
     };
 
     PlatformanceTracker.prototype.loadStorageLayerClient = function () {
@@ -145,10 +200,14 @@
     PlatformanceTracker.prototype.initialize = function () {
         var self = this;
 
-        self.log('Initializing PlatformanceTracker, loading storage layer client...');
+        self.log('Initializing PlatformanceTracker, loading site configuration...');
 
-        // Load storage layer client first, wait for connection, then generate user ID
-        this.loadStorageLayerClient()
+        // Load site config first, then storage layer client, then generate user ID
+        this.loadSiteConfig()
+            .then(function (config) {
+                self.log('Site configuration loaded, now loading storage layer client...');
+                return self.loadStorageLayerClient();
+            })
             .then(function () {
                 self.log('Storage layer client ready, now generating user ID...');
                 return self.generateUserId();
@@ -246,35 +305,46 @@
     PlatformanceTracker.prototype.generateNewUserId = function () {
         var self = this;
 
-        // Try FingerprintJS first, fallback to local ID generation if it fails
-        return import('https://fpjscdn.net/v3/TbkpbBFNZYNv2uCOZqDD')
-            .then(function (FingerprintJS) {
-                return FingerprintJS.load({
-                    region: "eu"
+        // Check if fingerprinting is enabled in the site config
+        if (self.siteConfig && self.siteConfig.enable_fingerprint === true) {
+            self.log('Fingerprinting enabled, attempting to use FingerprintJS');
+            // Try FingerprintJS first, fallback to local ID generation if it fails
+            return import('https://fpjscdn.net/v3/TbkpbBFNZYNv2uCOZqDD')
+                .then(function (FingerprintJS) {
+                    return FingerprintJS.load({
+                        region: "eu"
+                    });
+                })
+                .then(function (fp) {
+                    return fp.get();
+                })
+                .then(function (result) {
+                    var visitorId = result.visitorId;
+                    self.log('FingerprintJS visitorId:', visitorId);
+
+                    // Store the fingerprint user ID using storage client
+                    if (self.storageClient) {
+                        self.storageClient.set('platformance_user_id', visitorId);
+                        self.log('User ID stored successfully via storage client');
+                    } else {
+                        self.log('No storage client available, user ID not persisted');
+                    }
+
+                    self.userId = visitorId;
+                    return visitorId;
+                })
+                .catch(function (error) {
+                    self.log('FingerprintJS failed, falling back to local ID generation:', error);
+                    return self.generateLocalUserId();
                 });
-            })
-            .then(function (fp) {
-                return fp.get();
-            })
-            .then(function (result) {
-                var visitorId = result.visitorId;
-                self.log('FingerprintJS visitorId:', visitorId);
+        } else {
+            self.log('Fingerprinting disabled in site config, generating local user ID');
+            return self.generateLocalUserId();
+        }
 
-                // Store the fingerprint user ID using storage client
-                if (self.storageClient) {
-                    self.storageClient.set('platformance_user_id', visitorId);
-                    self.log('User ID stored successfully via storage client');
-                } else {
-                    self.log('No storage client available, user ID not persisted');
-                }
 
-                self.userId = visitorId;
-                return visitorId;
-            })
-            .catch(function (error) {
-                self.log('FingerprintJS failed, falling back to local ID generation:', error);
-                return self.generateLocalUserId();
-            });
+
+
     };
 
     PlatformanceTracker.prototype.generateLocalUserId = function () {
@@ -332,6 +402,10 @@
 
     PlatformanceTracker.prototype.getStorageClient = function () {
         return this.storageClient;
+    };
+
+    PlatformanceTracker.prototype.getSiteConfig = function () {
+        return this.siteConfig;
     };
 
     PlatformanceTracker.prototype.processGlobalQueue = function () {
