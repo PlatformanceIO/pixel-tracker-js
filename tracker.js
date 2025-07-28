@@ -83,6 +83,8 @@
         this.batchTimeout = this.options.batchTimeout || 1000;
         this.debug = this.options.debug || false;
         this.isInitialized = false;
+        this.firstImpressionRecorded = false;
+        this.onFirstImpressionCallbacks = [];
 
         // Initialize the tracker after loading config and getting the user ID
         this.initialize();
@@ -423,6 +425,62 @@
         return this.siteConfig;
     };
 
+    PlatformanceTracker.prototype.onFirstImpression = function (callback) {
+        if (typeof callback !== 'function') {
+            this.log('onFirstImpression: callback must be a function');
+            return;
+        }
+
+        if (this.firstImpressionRecorded) {
+            // First impression already recorded, call callback immediately
+            this.log('First impression already recorded, calling callback immediately');
+            try {
+                callback();
+            } catch (error) {
+                this.log('Error in first impression callback:', error);
+            }
+        } else {
+            // Add to callbacks array to be called when first impression is recorded
+            this.onFirstImpressionCallbacks.push(callback);
+            this.log('Added callback for first impression event');
+        }
+    };
+
+    PlatformanceTracker.prototype.triggerFirstImpressionCallbacks = function () {
+        if (this.firstImpressionRecorded || this.onFirstImpressionCallbacks.length === 0) {
+            return;
+        }
+
+        this.log('Triggering first impression callbacks (' + this.onFirstImpressionCallbacks.length + ')');
+        this.firstImpressionRecorded = true;
+
+        // Dispatch custom event on window
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+            try {
+                var event = document.createEvent ? document.createEvent('Event') : new Event('platformanceFirstImpression');
+                if (document.createEvent) {
+                    event.initEvent('platformanceFirstImpression', true, true);
+                }
+                window.dispatchEvent(event);
+                this.log('Dispatched platformanceFirstImpression event');
+            } catch (error) {
+                this.log('Error dispatching first impression event:', error);
+            }
+        }
+
+        // Call all registered callbacks
+        for (var i = 0; i < this.onFirstImpressionCallbacks.length; i++) {
+            try {
+                this.onFirstImpressionCallbacks[i]();
+            } catch (error) {
+                this.log('Error in first impression callback:', error);
+            }
+        }
+
+        // Clear callbacks array
+        this.onFirstImpressionCallbacks = [];
+    };
+
     PlatformanceTracker.prototype.processGlobalQueue = function () {
         var self = this;
         var globalQueue = window.pfQueue || window.platformanceQueue || [];
@@ -441,6 +499,12 @@
                 if (action === 'track' || action === 'trackEvent') {
                     self.log('Processing queued event:', eventType, additionalData);
                     self.trackEvent(eventType, additionalData);
+                } else if (action === 'onFirstImpression') {
+                    // Handle first impression callback registration
+                    self.log('Processing queued first impression callback');
+                    if (typeof eventType === 'function') {
+                        self.onFirstImpression(eventType);
+                    }
                 } else if (action === 'config') {
                     // Handle configuration updates
                     self.log('Processing queued config:', command);
@@ -459,7 +523,7 @@
         // Replace the global queue with a function that directly calls trackEvent
         window.pfQueue = window.platformanceQueue = function () {
             var args = Array.prototype.slice.call(arguments);
-            if (args.length >= 2) {
+            if (args.length >= 1) {
                 var action = args[0];
                 var eventType = args[1];
                 var additionalData = args[2] || {};
@@ -476,6 +540,11 @@
                     } else {
                         self.trackEvent(eventType, additionalData);
                     }
+                } else if (action === 'onFirstImpression') {
+                    // Handle first impression callback registration
+                    if (typeof eventType === 'function') {
+                        self.onFirstImpression(eventType);
+                    }
                 } else if (action === 'config' && eventType && typeof eventType === 'object') {
                     Object.assign(self.options, eventType);
                 }
@@ -484,7 +553,7 @@
 
         // Also add a push method for array-like behavior
         window.pfQueue.push = window.platformanceQueue.push = function (command) {
-            if (Array.isArray(command) && command.length >= 2) {
+            if (Array.isArray(command) && command.length >= 1) {
                 window.pfQueue.apply(window, command);
             }
         };
@@ -679,6 +748,11 @@
                         var success = xhr.status >= 200 && xhr.status < 300;
                         if (success) {
                             self.log('Event sent successfully:', event.event_type);
+
+                            // Trigger first impression callbacks if this is an impression event
+                            if (event.event_type === EVENT_TYPES.IMPRESSION && !self.firstImpressionRecorded) {
+                                self.triggerFirstImpressionCallbacks();
+                            }
                         } else {
                             self.log('API call failed:', {
                                 url: url,

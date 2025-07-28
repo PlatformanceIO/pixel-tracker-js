@@ -139,6 +139,152 @@ The array command format is: `['track', 'event_name', {additional_data}]`
 
 **Note:** Custom event names will automatically be prefixed with 'custom_' if not already present.
 
+### 🎯 First Impression Event Callbacks
+
+The tracker provides a powerful feature to execute code when the first `impression` event is successfully recorded. This is particularly useful for applications that need to wait for tracking confirmation before proceeding with critical functionality like redirects or analytics initialization.
+
+#### 🚀 Why Use First Impression Callbacks?
+
+- **Guaranteed Tracking**: Ensure your impression has been successfully sent to the server
+- **Redirect Safety**: Perfect for redirect scenarios where you want to confirm tracking before navigation  
+- **Application Flow**: Synchronize your app logic with tracking milestones
+- **Performance Optimization**: Initialize heavy features only after core tracking is confirmed
+
+#### 📋 Usage Methods
+
+##### Method 1: Global Queue (Recommended)
+Works even before the tracker script is loaded:
+
+```javascript
+// Initialize queue before tracker loads
+window.pfQueue = window.pfQueue || [];
+
+// Register callback using function call syntax
+pfQueue('onFirstImpression', function() {
+    console.log('First impression recorded! Safe to proceed...');
+    // Your code here - redirects, analytics, etc.
+    initializeMyApp();
+});
+
+// Or using array push syntax
+pfQueue.push(['onFirstImpression', function() {
+    console.log('Tracking confirmed, redirecting...');
+    window.location.href = 'https://example.com/success';
+}]);
+```
+
+##### Method 2: Direct Method Call
+Requires the tracker to be already loaded:
+
+```javascript
+// Make sure tracker is loaded first
+if (window.pfTracker) {
+    window.pfTracker.onFirstImpression(function() {
+        console.log('First impression recorded via direct call!');
+        // Your code here...
+    });
+}
+```
+
+##### Method 3: DOM Event Listener
+Listen for the custom event dispatched on window:
+
+```javascript
+// Listen for the custom DOM event
+window.addEventListener('platformanceFirstImpression', function(event) {
+    console.log('First impression recorded via DOM event!');
+    // Your code here...
+});
+```
+
+#### 🎯 Real-World Example: Safe Redirect
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Campaign Landing Page</title>
+</head>
+<body>
+    <div id="loading">Tracking your visit...</div>
+    <div id="content" style="display:none;">Welcome!</div>
+
+    <script>
+        // Initialize queue before tracker loads
+        window.pfQueue = window.pfQueue || [];
+        
+        // Register callback for first impression
+        pfQueue('onFirstImpression', function() {
+            // Hide loading, show content
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'block';
+            
+            // Safe to redirect after 2 seconds
+            setTimeout(function() {
+                window.location.href = 'https://yoursite.com/dashboard';
+            }, 2000);
+        });
+    </script>
+    
+    <!-- Load tracker -->
+    <script src="https://pixel.data.platformance.io/tracker.min.js?siteid=YOUR_SITE_ID"></script>
+</body>
+</html>
+```
+
+#### ⚙️ Callback Behavior
+
+| Scenario | Behavior |
+|----------|----------|
+| **Callback registered before first impression** | Executes when impression is successfully recorded |
+| **Callback registered after first impression** | Executes immediately |
+| **Multiple callbacks** | All callbacks are executed in registration order |
+| **Callback throws error** | Other callbacks continue to execute |
+| **Failed impression** | Callbacks are NOT triggered (only successful HTTP 200-299 responses trigger callbacks) |
+
+#### 🔧 Advanced Use Cases
+
+**Analytics Integration:**
+```javascript
+pfQueue('onFirstImpression', function() {
+    // Initialize other analytics tools after core tracking
+    gtag('config', 'GA_MEASUREMENT_ID');
+    fbq('track', 'PageView');
+    
+    // Load heavy personalization scripts
+    loadPersonalizationEngine();
+});
+```
+
+**A/B Testing:**
+```javascript
+pfQueue('onFirstImpression', function() {
+    // Tracking confirmed, safe to show test variant
+    showExperimentVariant();
+    
+    // Track the experiment impression
+    pfQueue('track', 'custom_experiment_shown', {
+        variant: 'test_b',
+        experiment_id: 'homepage_v2'
+    });
+});
+```
+
+**Performance Monitoring:**
+```javascript
+const trackingStartTime = performance.now();
+
+pfQueue('onFirstImpression', function() {
+    const trackingDuration = performance.now() - trackingStartTime;
+    console.log(`Tracking initialized in ${trackingDuration}ms`);
+    
+    // Log performance metrics
+    pfQueue('track', 'custom_tracking_performance', {
+        initialization_time: Math.round(trackingDuration)
+    });
+});
+```
+
 ### 📊 Rich Event Data
 
 ```typescript
