@@ -243,10 +243,8 @@
                 self.initializeEventListeners();
 
                 // Track initial events
-                self.trackEvent(EVENT_TYPES.SESSION_START);
-                setTimeout(function () {
-                    self.trackEvent(EVENT_TYPES.IMPRESSION);
-                }, 1500);
+                // self.trackEvent(EVENT_TYPES.SESSION_START);
+                self.trackEvent(EVENT_TYPES.IMPRESSION);
             })
             .catch(function (error) {
                 self.log('Failed to initialize PlatformanceTracker:', error);
@@ -262,10 +260,8 @@
                     self.initializeEventListeners();
 
                     // Track initial events
-                    self.trackEvent(EVENT_TYPES.SESSION_START);
-                    setTimeout(function () {
-                        self.trackEvent(EVENT_TYPES.IMPRESSION);
-                    }, 1500);
+                    // self.trackEvent(EVENT_TYPES.SESSION_START);
+                    self.trackEvent(EVENT_TYPES.IMPRESSION);
                 } catch (fallbackError) {
                     self.log('Complete initialization failure:', fallbackError);
                 }
