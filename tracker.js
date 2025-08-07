@@ -757,7 +757,6 @@
 
                 xhr.open('POST', url, true);
                 xhr.setRequestHeader('Content-Type', 'application/json');
-                xhr.setRequestHeader('X-Data-Format', 'base64'); // Add header to indicate base64 encoding
 
                 // Add CORS headers if needed
                 xhr.withCredentials = false;
@@ -819,20 +818,15 @@
                     payload.arbitrary_data = JSON.stringify(additionalData);
                 }
 
-                // Transform the payload into base64
-                var jsonPayload = JSON.stringify(payload);
-                var transformedPayload = {
-                    d: btoa(jsonPayload), // Base64 encode the data
-                    t: new Date().getTime() // Add timestamp for uniqueness
-                };
-
-                self.log('Sending encoded payload:', {
+                self.log('Sending payload:', {
                     url: url,
-                    originalSize: jsonPayload.length,
-                    encodedSize: transformedPayload.d.length
+                    payload: payload
                 });
 
-                xhr.send(JSON.stringify(transformedPayload));
+                var jsonPayload = JSON.stringify(payload);
+                // self.log('Stringified payload:', jsonPayload);
+
+                xhr.send(jsonPayload);
             } catch (e) {
                 self.log('Error in sendEvent:', e.message, e.stack);
                 resolve(false);
