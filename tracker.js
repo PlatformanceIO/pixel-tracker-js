@@ -561,7 +561,23 @@
         var doc = document.documentElement || {};
         var body = document.body || {};
 
-        return {
+        // Extract pfclid from query parameters
+        var queryString = window.location.search || '';
+        var pfclid = null;
+        if (queryString) {
+            var urlParams = new URLSearchParams ? new URLSearchParams(queryString) : null;
+            if (urlParams) {
+                pfclid = urlParams.get('pfclid');
+            } else {
+                // Fallback for older browsers
+                var match = queryString.match(/[?&]pfclid=([^&]*)/);
+                if (match && match[1]) {
+                    pfclid = decodeURIComponent(match[1]);
+                }
+            }
+        }
+
+        var browserInfo = {
             browser_screen_width: screen.width || 0,
             browser_screen_height: screen.height || 0,
             browser_viewport_width: window.innerWidth || doc.clientWidth || body.clientWidth || 0,
@@ -583,12 +599,19 @@
             browser_url: window.location.href || '',
             browser_hostname: window.location.hostname || '',
             browser_pathname: window.location.pathname || '',
-            browser_query_string: window.location.search || '',
+            browser_query_string: queryString,
             browser_session_id: this.sessionId,
             browser_user_id: this.getUserId(),
             user_id: this.getUserId(),
             user_id_type: this.userIdType || 'unknown'
         };
+
+        // Add reference_event_id if pfclid is found
+        if (pfclid) {
+            browserInfo.reference_event_id = pfclid;
+        }
+
+        return browserInfo;
     };
 
     PlatformanceTracker.prototype.calculateScrollInfo = function () {
@@ -734,6 +757,7 @@
 
                 xhr.open('POST', url, true);
                 xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.setRequestHeader('X-Data-Format', 'base64'); // Add header to indicate base64 encoding
 
                 // Add CORS headers if needed
                 xhr.withCredentials = false;
@@ -795,15 +819,20 @@
                     payload.arbitrary_data = JSON.stringify(additionalData);
                 }
 
-                self.log('Sending payload:', {
+                // Transform the payload into base64
+                var jsonPayload = JSON.stringify(payload);
+                var transformedPayload = {
+                    d: btoa(jsonPayload), // Base64 encode the data
+                    t: new Date().getTime() // Add timestamp for uniqueness
+                };
+
+                self.log('Sending encoded payload:', {
                     url: url,
-                    payload: payload
+                    originalSize: jsonPayload.length,
+                    encodedSize: transformedPayload.d.length
                 });
 
-                var jsonPayload = JSON.stringify(payload);
-                // self.log('Stringified payload:', jsonPayload);
-
-                xhr.send(jsonPayload);
+                xhr.send(JSON.stringify(transformedPayload));
             } catch (e) {
                 self.log('Error in sendEvent:', e.message, e.stack);
                 resolve(false);
