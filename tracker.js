@@ -1025,103 +1025,123 @@
 
     // Auto-initialization logic
     function autoInitialize() {
-        // Get the currently executing script (the one that's loading this tracker)
-        var currentScript = document.currentScript || (function () {
-            var scripts = document.getElementsByTagName('script');
-            return scripts[scripts.length - 1];
-        })();
+        // Get all script tags that load this tracker
+        var scripts = document.getElementsByTagName('script');
+        var trackerScripts = [];
 
-        var siteId = null;
-        var debugMode = false;
+        console.log('autoInitialize called, checking all scripts...');
 
-        // Check if the current script has our tracker URL pattern
-        if (
-            currentScript && currentScript.src &&
-            (
-                currentScript.src.includes('https://pixel.data.platformance.io/tracker.min.js') ||
-                currentScript.src.includes('http://localhost:5500/tracker.js')
-            )
-        ) {
+        // Find all scripts that load tracker.js and have siteid parameter
+        for (var i = 0; i < scripts.length; i++) {
+            var script = scripts[i];
+            if (script.src &&
+                (script.src.includes('tracker.js') || script.src.includes('tracker.min.js')) &&
+                script.src.includes('siteid=')) {
+                trackerScripts.push(script);
+            }
+        }
+
+        console.log('Found tracker scripts:', trackerScripts.length);
+
+        // Process each tracker script that hasn't been processed yet
+        for (var j = 0; j < trackerScripts.length; j++) {
+            var currentScript = trackerScripts[j];
+            console.log('Processing script:', currentScript.src);
+
+            // Check if this script has already been processed
+            if (currentScript.getAttribute('data-pf-processed') === 'true') {
+                console.log('Script already processed, skipping:', currentScript.src);
+                continue;
+            }
+
+            var siteId = null;
+            var debugMode = false;
+
             var match = currentScript.src.match(/[?&]siteid=([0-9a-zA-Z_-]+)/i);
+            console.log('Script URL match attempt:', currentScript.src, 'match result:', match);
             if (match && match[1]) {
                 siteId = match[1];
+                console.log('Site ID extracted:', siteId);
 
                 // Check for debug parameter
                 var debugMatch = currentScript.src.match(/[?&]debug=(true|1)/i);
                 if (debugMatch) {
                     debugMode = true;
                 }
+
+                // Mark this script as processed
+                currentScript.setAttribute('data-pf-processed', 'true');
+
+                // Initialize tracker for this site ID
+                initializeTrackerForSiteId(siteId, debugMode);
             }
         }
+    }
 
-        // If we found a siteId, check if tracker for this site ID already exists
-        if (siteId) {
-            // Initialize trackers array if it doesn't exist
-            if (!window.pfTrackers) {
-                window.pfTrackers = {};
+    function initializeTrackerForSiteId(siteId, debugMode) {
+        console.log('Initializing tracker for site ID:', siteId);
+
+        // Initialize trackers array if it doesn't exist
+        if (!window.pfTrackers) {
+            window.pfTrackers = {};
+        }
+
+        // Check if tracker for this site ID already exists
+        if (window.pfTrackers[siteId]) {
+            console.log('PlatformanceTracker for site ID', siteId, 'already exists, skipping initialization');
+            return;
+        }
+
+        try {
+            // Create the tracker instance with debug option
+            var options = {};
+            if (debugMode) {
+                options.debug = true;
             }
+            var tracker = new PlatformanceTracker(siteId, options);
 
-            // Check if tracker for this site ID already exists
-            if (window.pfTrackers[siteId]) {
-                if (window.console && window.console.log) {
-                    console.log('PlatformanceTracker for site ID', siteId, 'already exists, skipping initialization');
-                }
-                return;
-            }
+            // Store tracker in the trackers object by site ID
+            window.pfTrackers[siteId] = tracker;
 
-            try {
-                // Create the tracker instance with debug option
-                var options = {};
-                if (debugMode) {
-                    options.debug = true;
-                }
-                var tracker = new PlatformanceTracker(siteId, options);
+            // Process any global events that were queued for later
+            if (window.pfSiteQueues['_global']) {
+                var globalEvents = window.pfSiteQueues['_global'];
+                for (var k = 0; k < globalEvents.length; k++) {
+                    var globalEvent = globalEvents[k];
+                    var action = globalEvent[0];
+                    var eventType = globalEvent[1];
+                    var additionalData = globalEvent[2] || {};
 
-                // Store tracker in the trackers object by site ID
-                window.pfTrackers[siteId] = tracker;
-
-                // Process any global events that were queued for later
-                if (window.pfSiteQueues['_global']) {
-                    var globalEvents = window.pfSiteQueues['_global'];
-                    for (var k = 0; k < globalEvents.length; k++) {
-                        var globalEvent = globalEvents[k];
-                        var action = globalEvent[0];
-                        var eventType = globalEvent[1];
-                        var additionalData = globalEvent[2] || {};
-
-                        if (action === 'track' || action === 'trackEvent') {
-                            if (!tracker.isInitialized) {
-                                if (!tracker.pendingEvents) {
-                                    tracker.pendingEvents = [];
-                                }
-                                tracker.pendingEvents.push([action, eventType, additionalData]);
-                            } else {
-                                tracker.trackEvent(eventType, additionalData);
+                    if (action === 'track' || action === 'trackEvent') {
+                        if (!tracker.isInitialized) {
+                            if (!tracker.pendingEvents) {
+                                tracker.pendingEvents = [];
                             }
-                        } else if (action === 'onFirstImpression') {
-                            if (typeof eventType === 'function') {
-                                tracker.onFirstImpression(eventType);
-                            }
-                        } else if (action === 'config' && eventType && typeof eventType === 'object') {
-                            Object.assign(tracker.options, eventType);
+                            tracker.pendingEvents.push([action, eventType, additionalData]);
+                        } else {
+                            tracker.trackEvent(eventType, additionalData);
                         }
-                    }
-                    // Clear global events after processing by first tracker
-                    if (Object.keys(window.pfTrackers).length === 1) {
-                        window.pfSiteQueues['_global'] = [];
+                    } else if (action === 'onFirstImpression') {
+                        if (typeof eventType === 'function') {
+                            tracker.onFirstImpression(eventType);
+                        }
+                    } else if (action === 'config' && eventType && typeof eventType === 'object') {
+                        Object.assign(tracker.options, eventType);
                     }
                 }
-
-                // Keep backward compatibility - set the first tracker as the global pfTracker
-                if (!window.pfTracker) {
-                    window.pfTracker = tracker;
-                }
-            } catch (e) {
-                // Log error but don't break the page
-                if (window.console && window.console.error) {
-                    console.error('PlatformanceTracker auto-initialization failed:', e);
+                // Clear global events after processing by first tracker
+                if (Object.keys(window.pfTrackers).length === 1) {
+                    window.pfSiteQueues['_global'] = [];
                 }
             }
+
+            // Keep backward compatibility - set the first tracker as the global pfTracker
+            if (!window.pfTracker) {
+                window.pfTracker = tracker;
+            }
+        } catch (e) {
+            // Log error but don't break the page
+            console.error('PlatformanceTracker auto-initialization failed:', e);
         }
     }
 
