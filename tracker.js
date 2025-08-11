@@ -561,75 +561,74 @@
         }
 
         // Replace the global queue with a function that routes to appropriate tracker
-        if (!window.pfQueueInitialized) {
-            window.pfQueueInitialized = true;
+        // Always update this to ensure all trackers are available
+        window.pfQueue = window.platformanceQueue = function () {
+            var args = Array.prototype.slice.call(arguments);
+            if (args.length >= 1) {
+                var action = args[0];
+                var eventType = args[1];
+                var additionalData = args[2] || {};
+                var targetSiteId = args[3]; // Optional site ID parameter
 
-            window.pfQueue = window.platformanceQueue = function () {
-                var args = Array.prototype.slice.call(arguments);
-                if (args.length >= 1) {
-                    var action = args[0];
-                    var eventType = args[1];
-                    var additionalData = args[2] || {};
-                    var targetSiteId = args[3]; // Optional site ID parameter
-
-                    // If site ID is specified, route to that specific tracker
-                    if (targetSiteId && window.pfTrackers && window.pfTrackers[targetSiteId]) {
-                        var targetTracker = window.pfTrackers[targetSiteId];
-                        if (action === 'track' || action === 'trackEvent') {
-                            if (!targetTracker.isInitialized) {
-                                targetTracker.log('Queueing event until initialization:', eventType);
-                                if (!targetTracker.pendingEvents) {
-                                    targetTracker.pendingEvents = [];
-                                }
-                                targetTracker.pendingEvents.push([action, eventType, additionalData]);
-                            } else {
-                                targetTracker.trackEvent(eventType, additionalData);
+                // If site ID is specified, route to that specific tracker
+                if (targetSiteId && window.pfTrackers && window.pfTrackers[targetSiteId]) {
+                    var targetTracker = window.pfTrackers[targetSiteId];
+                    if (action === 'track' || action === 'trackEvent') {
+                        if (!targetTracker.isInitialized) {
+                            targetTracker.log('Queueing event until initialization:', eventType);
+                            if (!targetTracker.pendingEvents) {
+                                targetTracker.pendingEvents = [];
                             }
-                        } else if (action === 'onFirstImpression') {
-                            if (typeof eventType === 'function') {
-                                targetTracker.onFirstImpression(eventType);
-                            }
-                        } else if (action === 'config' && eventType && typeof eventType === 'object') {
-                            Object.assign(targetTracker.options, eventType);
+                            targetTracker.pendingEvents.push([action, eventType, additionalData]);
+                        } else {
+                            targetTracker.trackEvent(eventType, additionalData);
                         }
-                        return;
+                    } else if (action === 'onFirstImpression') {
+                        if (typeof eventType === 'function') {
+                            targetTracker.onFirstImpression(eventType);
+                        }
+                    } else if (action === 'config' && eventType && typeof eventType === 'object') {
+                        Object.assign(targetTracker.options, eventType);
                     }
-
-                    // No site ID specified, send to all trackers (backwards compatibility)
-                    if (window.pfTrackers) {
-                        for (var siteId in window.pfTrackers) {
-                            if (window.pfTrackers.hasOwnProperty(siteId)) {
-                                var tracker = window.pfTrackers[siteId];
-                                if (action === 'track' || action === 'trackEvent') {
-                                    if (!tracker.isInitialized) {
-                                        tracker.log('Queueing event until initialization:', eventType);
-                                        if (!tracker.pendingEvents) {
-                                            tracker.pendingEvents = [];
-                                        }
-                                        tracker.pendingEvents.push([action, eventType, additionalData]);
-                                    } else {
-                                        tracker.trackEvent(eventType, additionalData);
-                                    }
-                                } else if (action === 'onFirstImpression') {
-                                    if (typeof eventType === 'function') {
-                                        tracker.onFirstImpression(eventType);
-                                    }
-                                } else if (action === 'config' && eventType && typeof eventType === 'object') {
-                                    Object.assign(tracker.options, eventType);
-                                }
-                            }
-                        }
-                    } else {
-                        // No trackers initialized yet, queue for later
-                        if (!window.pfSiteQueues['_global']) {
-                            window.pfSiteQueues['_global'] = [];
-                        }
-                        window.pfSiteQueues['_global'].push([action, eventType, additionalData]);
-                    }
+                    return;
                 }
-            };
 
-            // Also add a push method for array-like behavior
+                // No site ID specified, send to all trackers (backwards compatibility)
+                if (window.pfTrackers) {
+                    for (var siteId in window.pfTrackers) {
+                        if (window.pfTrackers.hasOwnProperty(siteId)) {
+                            var tracker = window.pfTrackers[siteId];
+                            if (action === 'track' || action === 'trackEvent') {
+                                if (!tracker.isInitialized) {
+                                    tracker.log('Queueing event until initialization:', eventType);
+                                    if (!tracker.pendingEvents) {
+                                        tracker.pendingEvents = [];
+                                    }
+                                    tracker.pendingEvents.push([action, eventType, additionalData]);
+                                } else {
+                                    tracker.trackEvent(eventType, additionalData);
+                                }
+                            } else if (action === 'onFirstImpression') {
+                                if (typeof eventType === 'function') {
+                                    tracker.onFirstImpression(eventType);
+                                }
+                            } else if (action === 'config' && eventType && typeof eventType === 'object') {
+                                Object.assign(tracker.options, eventType);
+                            }
+                        }
+                    }
+                } else {
+                    // No trackers initialized yet, queue for later
+                    if (!window.pfSiteQueues['_global']) {
+                        window.pfSiteQueues['_global'] = [];
+                    }
+                    window.pfSiteQueues['_global'].push([action, eventType, additionalData]);
+                }
+            }
+        };
+
+        // Also add a push method for array-like behavior
+        if (!window.pfQueue.push) {
             window.pfQueue.push = window.platformanceQueue.push = function (command) {
                 if (Array.isArray(command) && command.length >= 1) {
                     window.pfQueue.apply(window, command);
