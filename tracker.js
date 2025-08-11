@@ -85,6 +85,10 @@
         this.isInitialized = false;
         this.firstImpressionRecorded = false;
         this.onFirstImpressionCallbacks = [];
+        this.referenceEventId = null; // Will store pfclid from URL or localStorage
+
+        // Initialize reference event ID from URL or localStorage
+        this.initializeReferenceEventId();
 
         // Initialize the tracker after loading config and getting the user ID
         this.initialize();
@@ -92,6 +96,53 @@
 
     PlatformanceTracker.prototype.now = function () {
         return Date.now ? Date.now() : new Date().getTime();
+    };
+
+    PlatformanceTracker.prototype.initializeReferenceEventId = function () {
+        var self = this;
+
+        // First, try to get pfclid from current URL
+        var queryString = window.location.search || '';
+        var pfclid = null;
+
+        if (queryString) {
+            var urlParams = new URLSearchParams ? new URLSearchParams(queryString) : null;
+            if (urlParams) {
+                pfclid = urlParams.get('pfclid');
+            } else {
+                // Fallback for older browsers
+                var match = queryString.match(/[?&]pfclid=([^&]*)/);
+                if (match && match[1]) {
+                    pfclid = decodeURIComponent(match[1]);
+                }
+            }
+        }
+
+        // If pfclid found in URL, store it in localStorage and use it
+        if (pfclid) {
+            self.log('Found pfclid in URL:', pfclid);
+            try {
+                localStorage.setItem('platformance_reference_event_id', pfclid);
+                self.referenceEventId = pfclid;
+                self.log('Stored pfclid in localStorage');
+            } catch (error) {
+                self.log('Failed to store pfclid in localStorage:', error);
+                self.referenceEventId = pfclid; // Still use it for this session
+            }
+        } else {
+            // No pfclid in URL, try to get it from localStorage
+            try {
+                var storedPfclid = localStorage.getItem('platformance_reference_event_id');
+                if (storedPfclid) {
+                    self.referenceEventId = storedPfclid;
+                    self.log('Retrieved pfclid from localStorage:', storedPfclid);
+                }
+            } catch (error) {
+                self.log('Failed to retrieve pfclid from localStorage:', error);
+            }
+        }
+
+        self.log('Reference event ID initialized:', self.referenceEventId);
     };
 
     PlatformanceTracker.prototype.log = function () {
@@ -421,6 +472,10 @@
         return this.siteConfig;
     };
 
+    PlatformanceTracker.prototype.getReferenceEventId = function () {
+        return this.referenceEventId;
+    };
+
     PlatformanceTracker.prototype.onFirstImpression = function (callback) {
         if (typeof callback !== 'function') {
             this.log('onFirstImpression: callback must be a function');
@@ -561,22 +616,6 @@
         var doc = document.documentElement || {};
         var body = document.body || {};
 
-        // Extract pfclid from query parameters
-        var queryString = window.location.search || '';
-        var pfclid = null;
-        if (queryString) {
-            var urlParams = new URLSearchParams ? new URLSearchParams(queryString) : null;
-            if (urlParams) {
-                pfclid = urlParams.get('pfclid');
-            } else {
-                // Fallback for older browsers
-                var match = queryString.match(/[?&]pfclid=([^&]*)/);
-                if (match && match[1]) {
-                    pfclid = decodeURIComponent(match[1]);
-                }
-            }
-        }
-
         var browserInfo = {
             browser_screen_width: screen.width || 0,
             browser_screen_height: screen.height || 0,
@@ -599,16 +638,16 @@
             browser_url: window.location.href || '',
             browser_hostname: window.location.hostname || '',
             browser_pathname: window.location.pathname || '',
-            browser_query_string: queryString,
+            browser_query_string: window.location.search || '',
             browser_session_id: this.sessionId,
             browser_user_id: this.getUserId(),
             user_id: this.getUserId(),
             user_id_type: this.userIdType || 'unknown'
         };
 
-        // Add reference_event_id if pfclid is found
-        if (pfclid) {
-            browserInfo.reference_event_id = pfclid;
+        // Add reference_event_id if we have one stored
+        if (this.referenceEventId) {
+            browserInfo.reference_event_id = this.referenceEventId;
         }
 
         return browserInfo;
