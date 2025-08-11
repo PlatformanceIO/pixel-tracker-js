@@ -89,8 +89,10 @@
         this.firstImpressionRecorded = false;
         this.onFirstImpressionCallbacks = [];
         this.referenceEventId = null; // Will store pfclid from URL or localStorage
+        this.referenceSiteId = null; // Will store pfRefSiteId from URL or localStorage
+        this.referenceProductName = null; // Will store pfRefProductName from URL or localStorage
 
-        // Initialize reference event ID from URL or localStorage
+        // Initialize reference event ID and related parameters from URL or localStorage
         this.initializeReferenceEventId();
 
         // Initialize the tracker after loading config and getting the user ID
@@ -104,19 +106,33 @@
     PlatformanceTracker.prototype.initializeReferenceEventId = function () {
         var self = this;
 
-        // First, try to get pfclid from current URL
+        // First, try to get pfclid, pfRefSiteId, and pfRefProductName from current URL
         var queryString = window.location.search || '';
         var pfclid = null;
+        var pfRefSiteId = null;
+        var pfRefProductName = null;
 
         if (queryString) {
             var urlParams = new URLSearchParams ? new URLSearchParams(queryString) : null;
             if (urlParams) {
                 pfclid = urlParams.get('pfclid');
+                pfRefSiteId = urlParams.get('pfRefSiteId');
+                pfRefProductName = urlParams.get('pfRefProductName');
             } else {
                 // Fallback for older browsers
-                var match = queryString.match(/[?&]pfclid=([^&]*)/);
-                if (match && match[1]) {
-                    pfclid = decodeURIComponent(match[1]);
+                var pfclidMatch = queryString.match(/[?&]pfclid=([^&]*)/);
+                if (pfclidMatch && pfclidMatch[1]) {
+                    pfclid = decodeURIComponent(pfclidMatch[1]);
+                }
+
+                var pfRefSiteIdMatch = queryString.match(/[?&]pfRefSiteId=([^&]*)/);
+                if (pfRefSiteIdMatch && pfRefSiteIdMatch[1]) {
+                    pfRefSiteId = decodeURIComponent(pfRefSiteIdMatch[1]);
+                }
+
+                var pfRefProductNameMatch = queryString.match(/[?&]pfRefProductName=([^&]*)/);
+                if (pfRefProductNameMatch && pfRefProductNameMatch[1]) {
+                    pfRefProductName = decodeURIComponent(pfRefProductNameMatch[1]);
                 }
             }
         }
@@ -145,7 +161,59 @@
             }
         }
 
-        self.log('Reference event ID initialized:', self.referenceEventId);
+        // If pfRefSiteId found in URL, store it in localStorage and use it
+        if (pfRefSiteId) {
+            self.log('Found pfRefSiteId in URL:', pfRefSiteId);
+            try {
+                localStorage.setItem('platformance_reference_site_id', pfRefSiteId);
+                self.referenceSiteId = pfRefSiteId;
+                self.log('Stored pfRefSiteId in localStorage');
+            } catch (error) {
+                self.log('Failed to store pfRefSiteId in localStorage:', error);
+                self.referenceSiteId = pfRefSiteId; // Still use it for this session
+            }
+        } else {
+            // No pfRefSiteId in URL, try to get it from localStorage
+            try {
+                var storedPfRefSiteId = localStorage.getItem('platformance_reference_site_id');
+                if (storedPfRefSiteId) {
+                    self.referenceSiteId = storedPfRefSiteId;
+                    self.log('Retrieved pfRefSiteId from localStorage:', storedPfRefSiteId);
+                }
+            } catch (error) {
+                self.log('Failed to retrieve pfRefSiteId from localStorage:', error);
+            }
+        }
+
+        // If pfRefProductName found in URL, store it in localStorage and use it
+        if (pfRefProductName) {
+            self.log('Found pfRefProductName in URL:', pfRefProductName);
+            try {
+                localStorage.setItem('platformance_reference_product_name', pfRefProductName);
+                self.referenceProductName = pfRefProductName;
+                self.log('Stored pfRefProductName in localStorage');
+            } catch (error) {
+                self.log('Failed to store pfRefProductName in localStorage:', error);
+                self.referenceProductName = pfRefProductName; // Still use it for this session
+            }
+        } else {
+            // No pfRefProductName in URL, try to get it from localStorage
+            try {
+                var storedPfRefProductName = localStorage.getItem('platformance_reference_product_name');
+                if (storedPfRefProductName) {
+                    self.referenceProductName = storedPfRefProductName;
+                    self.log('Retrieved pfRefProductName from localStorage:', storedPfRefProductName);
+                }
+            } catch (error) {
+                self.log('Failed to retrieve pfRefProductName from localStorage:', error);
+            }
+        }
+
+        self.log('Reference parameters initialized:', {
+            referenceEventId: self.referenceEventId,
+            referenceSiteId: self.referenceSiteId,
+            referenceProductName: self.referenceProductName
+        });
     };
 
     PlatformanceTracker.prototype.log = function () {
@@ -479,6 +547,14 @@
         return this.referenceEventId;
     };
 
+    PlatformanceTracker.prototype.getReferenceSiteId = function () {
+        return this.referenceSiteId;
+    };
+
+    PlatformanceTracker.prototype.getReferenceProductName = function () {
+        return this.referenceProductName;
+    };
+
     PlatformanceTracker.prototype.onFirstImpression = function (callback) {
         if (typeof callback !== 'function') {
             this.log('onFirstImpression: callback must be a function');
@@ -704,6 +780,16 @@
         // Add reference_event_id if we have one stored
         if (this.referenceEventId) {
             browserInfo.reference_event_id = this.referenceEventId;
+        }
+
+        // Add reference_site_id if we have one stored
+        if (this.referenceSiteId) {
+            browserInfo.reference_site_id = this.referenceSiteId;
+        }
+
+        // Add reference_product_name if we have one stored
+        if (this.referenceProductName) {
+            browserInfo.reference_product_name = this.referenceProductName;
         }
 
         return browserInfo;
