@@ -3,6 +3,9 @@
     window.pfQueue = window.pfQueue || [];
     window.platformanceQueue = window.platformanceQueue || [];
 
+    // Initialize site-specific queues storage
+    window.pfSiteQueues = window.pfSiteQueues || {};
+
     // Event type definitions
     var EVENT_TYPES = {
         SESSION_START: 'session_start',
@@ -535,79 +538,133 @@
     PlatformanceTracker.prototype.processGlobalQueue = function () {
         var self = this;
         var globalQueue = window.pfQueue || window.platformanceQueue || [];
+        var siteSpecificQueue = window.pfSiteQueues[this.siteId] || [];
 
-        self.log('Processing global queue. Found ' + globalQueue.length + ' events');
+        self.log('Processing global queue. Found ' + globalQueue.length + ' global events and ' + siteSpecificQueue.length + ' site-specific events');
 
-        // Process each queued command
+        // Process global queue first (backwards compatibility)
         for (var i = 0; i < globalQueue.length; i++) {
             var command = globalQueue[i];
-
-            if (Array.isArray(command) && command.length >= 2) {
-                var action = command[0];
-                var eventType = command[1];
-                var additionalData = command[2] || {};
-
-                if (action === 'track' || action === 'trackEvent') {
-                    self.log('Processing queued event:', eventType, additionalData);
-                    self.trackEvent(eventType, additionalData);
-                } else if (action === 'onFirstImpression') {
-                    // Handle first impression callback registration
-                    self.log('Processing queued first impression callback');
-                    if (typeof eventType === 'function') {
-                        self.onFirstImpression(eventType);
-                    }
-                } else if (action === 'config') {
-                    // Handle configuration updates
-                    self.log('Processing queued config:', command);
-                    if (eventType && typeof eventType === 'object') {
-                        Object.assign(self.options, eventType);
-                    }
-                }
-            } else {
-                self.log('Invalid queue command format:', command);
-            }
+            this.processQueueCommand(command);
         }
 
-        // Clear the processed queue
+        // Process site-specific queue
+        for (var j = 0; j < siteSpecificQueue.length; j++) {
+            var siteCommand = siteSpecificQueue[j];
+            this.processQueueCommand(siteCommand);
+        }
+
+        // Clear the processed queues
         globalQueue.length = 0;
+        if (window.pfSiteQueues[this.siteId]) {
+            window.pfSiteQueues[this.siteId].length = 0;
+        }
 
-        // Replace the global queue with a function that directly calls trackEvent
-        window.pfQueue = window.platformanceQueue = function () {
-            var args = Array.prototype.slice.call(arguments);
-            if (args.length >= 1) {
-                var action = args[0];
-                var eventType = args[1];
-                var additionalData = args[2] || {};
+        // Replace the global queue with a function that routes to appropriate tracker
+        if (!window.pfQueueInitialized) {
+            window.pfQueueInitialized = true;
 
-                if (action === 'track' || action === 'trackEvent') {
-                    // If not initialized yet, queue the event for later processing
-                    if (!self.isInitialized) {
-                        self.log('Queueing event until initialization:', eventType);
-                        // Store in a temporary queue until initialized
-                        if (!self.pendingEvents) {
-                            self.pendingEvents = [];
+            window.pfQueue = window.platformanceQueue = function () {
+                var args = Array.prototype.slice.call(arguments);
+                if (args.length >= 1) {
+                    var action = args[0];
+                    var eventType = args[1];
+                    var additionalData = args[2] || {};
+                    var targetSiteId = args[3]; // Optional site ID parameter
+
+                    // If site ID is specified, route to that specific tracker
+                    if (targetSiteId && window.pfTrackers && window.pfTrackers[targetSiteId]) {
+                        var targetTracker = window.pfTrackers[targetSiteId];
+                        if (action === 'track' || action === 'trackEvent') {
+                            if (!targetTracker.isInitialized) {
+                                targetTracker.log('Queueing event until initialization:', eventType);
+                                if (!targetTracker.pendingEvents) {
+                                    targetTracker.pendingEvents = [];
+                                }
+                                targetTracker.pendingEvents.push([action, eventType, additionalData]);
+                            } else {
+                                targetTracker.trackEvent(eventType, additionalData);
+                            }
+                        } else if (action === 'onFirstImpression') {
+                            if (typeof eventType === 'function') {
+                                targetTracker.onFirstImpression(eventType);
+                            }
+                        } else if (action === 'config' && eventType && typeof eventType === 'object') {
+                            Object.assign(targetTracker.options, eventType);
                         }
-                        self.pendingEvents.push([action, eventType, additionalData]);
+                        return;
+                    }
+
+                    // No site ID specified, send to all trackers (backwards compatibility)
+                    if (window.pfTrackers) {
+                        for (var siteId in window.pfTrackers) {
+                            if (window.pfTrackers.hasOwnProperty(siteId)) {
+                                var tracker = window.pfTrackers[siteId];
+                                if (action === 'track' || action === 'trackEvent') {
+                                    if (!tracker.isInitialized) {
+                                        tracker.log('Queueing event until initialization:', eventType);
+                                        if (!tracker.pendingEvents) {
+                                            tracker.pendingEvents = [];
+                                        }
+                                        tracker.pendingEvents.push([action, eventType, additionalData]);
+                                    } else {
+                                        tracker.trackEvent(eventType, additionalData);
+                                    }
+                                } else if (action === 'onFirstImpression') {
+                                    if (typeof eventType === 'function') {
+                                        tracker.onFirstImpression(eventType);
+                                    }
+                                } else if (action === 'config' && eventType && typeof eventType === 'object') {
+                                    Object.assign(tracker.options, eventType);
+                                }
+                            }
+                        }
                     } else {
-                        self.trackEvent(eventType, additionalData);
+                        // No trackers initialized yet, queue for later
+                        if (!window.pfSiteQueues['_global']) {
+                            window.pfSiteQueues['_global'] = [];
+                        }
+                        window.pfSiteQueues['_global'].push([action, eventType, additionalData]);
                     }
-                } else if (action === 'onFirstImpression') {
-                    // Handle first impression callback registration
-                    if (typeof eventType === 'function') {
-                        self.onFirstImpression(eventType);
-                    }
-                } else if (action === 'config' && eventType && typeof eventType === 'object') {
+                }
+            };
+
+            // Also add a push method for array-like behavior
+            window.pfQueue.push = window.platformanceQueue.push = function (command) {
+                if (Array.isArray(command) && command.length >= 1) {
+                    window.pfQueue.apply(window, command);
+                }
+            };
+        }
+    };
+
+    PlatformanceTracker.prototype.processQueueCommand = function (command) {
+        var self = this;
+
+        if (Array.isArray(command) && command.length >= 2) {
+            var action = command[0];
+            var eventType = command[1];
+            var additionalData = command[2] || {};
+
+            if (action === 'track' || action === 'trackEvent') {
+                self.log('Processing queued event:', eventType, additionalData);
+                self.trackEvent(eventType, additionalData);
+            } else if (action === 'onFirstImpression') {
+                // Handle first impression callback registration
+                self.log('Processing queued first impression callback');
+                if (typeof eventType === 'function') {
+                    self.onFirstImpression(eventType);
+                }
+            } else if (action === 'config') {
+                // Handle configuration updates
+                self.log('Processing queued config:', command);
+                if (eventType && typeof eventType === 'object') {
                     Object.assign(self.options, eventType);
                 }
             }
-        };
-
-        // Also add a push method for array-like behavior
-        window.pfQueue.push = window.platformanceQueue.push = function (command) {
-            if (Array.isArray(command) && command.length >= 1) {
-                window.pfQueue.apply(window, command);
-            }
-        };
+        } else {
+            self.log('Invalid queue command format:', command);
+        }
     };
 
     PlatformanceTracker.prototype.getBrowserInfo = function () {
@@ -969,11 +1026,6 @@
 
     // Auto-initialization logic
     function autoInitialize() {
-        // Prevent multiple initialization - if tracker already exists, don't initialize again
-        if (window.pfTracker) {
-            return;
-        }
-
         // Find the current script tag that loaded this tracker
         var scripts = document.getElementsByTagName('script');
         var siteId = null;
@@ -1003,15 +1055,68 @@
             }
         }
 
-        // If we found a siteId, auto-initialize the tracker
+        // If we found a siteId, check if tracker for this site ID already exists
         if (siteId) {
+            // Initialize trackers array if it doesn't exist
+            if (!window.pfTrackers) {
+                window.pfTrackers = {};
+            }
+
+            // Check if tracker for this site ID already exists
+            if (window.pfTrackers[siteId]) {
+                if (window.console && window.console.log) {
+                    console.log('PlatformanceTracker for site ID', siteId, 'already exists, skipping initialization');
+                }
+                return;
+            }
+
             try {
-                // Create the tracker instance with debug option and make it globally available
+                // Create the tracker instance with debug option
                 var options = {};
                 if (debugMode) {
                     options.debug = true;
                 }
-                window.pfTracker = new PlatformanceTracker(siteId, options);
+                var tracker = new PlatformanceTracker(siteId, options);
+
+                // Store tracker in the trackers object by site ID
+                window.pfTrackers[siteId] = tracker;
+
+                // Process any global events that were queued for later
+                if (window.pfSiteQueues['_global']) {
+                    var globalEvents = window.pfSiteQueues['_global'];
+                    for (var k = 0; k < globalEvents.length; k++) {
+                        var globalEvent = globalEvents[k];
+                        var action = globalEvent[0];
+                        var eventType = globalEvent[1];
+                        var additionalData = globalEvent[2] || {};
+
+                        if (action === 'track' || action === 'trackEvent') {
+                            if (!tracker.isInitialized) {
+                                if (!tracker.pendingEvents) {
+                                    tracker.pendingEvents = [];
+                                }
+                                tracker.pendingEvents.push([action, eventType, additionalData]);
+                            } else {
+                                tracker.trackEvent(eventType, additionalData);
+                            }
+                        } else if (action === 'onFirstImpression') {
+                            if (typeof eventType === 'function') {
+                                tracker.onFirstImpression(eventType);
+                            }
+                        } else if (action === 'config' && eventType && typeof eventType === 'object') {
+                            Object.assign(tracker.options, eventType);
+                        }
+                    }
+                    // Clear global events after processing by first tracker
+                    if (Object.keys(window.pfTrackers).length === 1) {
+                        window.pfSiteQueues['_global'] = [];
+                    }
+                }
+
+                // Keep backward compatibility - set the first tracker as the global pfTracker
+                if (!window.pfTracker) {
+                    window.pfTracker = tracker;
+                }
             } catch (e) {
                 // Log error but don't break the page
                 if (window.console && window.console.error) {
@@ -1021,11 +1126,26 @@
         }
     }
 
+    // Helper function to get tracker by site ID
+    function getTrackerBySiteId(siteId) {
+        return window.pfTrackers && window.pfTrackers[siteId] ? window.pfTrackers[siteId] : null;
+    }
+
+    // Helper function to queue events for a specific site ID
+    function queueForSite(siteId, action, eventType, additionalData) {
+        if (!window.pfSiteQueues[siteId]) {
+            window.pfSiteQueues[siteId] = [];
+        }
+        window.pfSiteQueues[siteId].push([action, eventType, additionalData]);
+    }
+
     // Export the tracker
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = PlatformanceTracker;
     } else {
         window.PlatformanceTracker = PlatformanceTracker;
+        window.getTrackerBySiteId = getTrackerBySiteId;
+        window.queueForSite = queueForSite;
 
         // Auto-initialize if we're in a browser environment
         if (typeof document !== 'undefined') {
