@@ -1026,31 +1026,31 @@
 
     // Auto-initialization logic
     function autoInitialize() {
-        // Find the current script tag that loaded this tracker
-        var scripts = document.getElementsByTagName('script');
+        // Get the currently executing script (the one that's loading this tracker)
+        var currentScript = document.currentScript || (function () {
+            var scripts = document.getElementsByTagName('script');
+            return scripts[scripts.length - 1];
+        })();
+
         var siteId = null;
         var debugMode = false;
 
-        for (var i = 0; i < scripts.length; i++) {
-            var script = scripts[i];
-            // Check for both localhost and production URLs
-            if (
-                script.src &&
-                (
-                    script.src.includes('https://pixel.data.platformance.io/tracker.min.js') ||
-                    script.src.includes('http://localhost:5500/tracker.js')
-                )
-            ) {
-                var match = script.src.match(/[?&]siteid=([0-9a-zA-Z_-]+)/i);
-                if (match && match[1]) {
-                    siteId = match[1];
+        // Check if the current script has our tracker URL pattern
+        if (
+            currentScript && currentScript.src &&
+            (
+                currentScript.src.includes('https://pixel.data.platformance.io/tracker.min.js') ||
+                currentScript.src.includes('http://localhost:5500/tracker.js')
+            )
+        ) {
+            var match = currentScript.src.match(/[?&]siteid=([0-9a-zA-Z_-]+)/i);
+            if (match && match[1]) {
+                siteId = match[1];
 
-                    // Check for debug parameter
-                    var debugMatch = script.src.match(/[?&]debug=(true|1)/i);
-                    if (debugMatch) {
-                        debugMode = true;
-                    }
-                    break;
+                // Check for debug parameter
+                var debugMatch = currentScript.src.match(/[?&]debug=(true|1)/i);
+                if (debugMatch) {
+                    debugMode = true;
                 }
             }
         }
